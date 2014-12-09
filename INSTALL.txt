@@ -1,0 +1,6 @@
+src/main/linux/mhagent goes in /usr/local/bin on the compute node
+src/main/python/* go in /usr/share/pyshared/nova/virt/libvirt  on the compute node
+
+mhagent requires openssl and trousers to be installed on the compute node
+
+no changes necessary to glance or the controller
