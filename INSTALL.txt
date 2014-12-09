@@ -3,4 +3,4 @@ src/main/python/* go in /usr/share/pyshared/nova/virt/libvirt  on the compute no
 
 mhagent requires openssl and trousers to be installed on the compute node
 
-no changes necessary to glance or the controller
+no changes necessary to glance or the controller.
