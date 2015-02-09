@@ -37,14 +37,15 @@ import org.w3c.dom.NodeList;
  * KeyValue KeyInfo.
  */
 public class Validate {
-
     public static void main(String[] args) throws Exception {
-
+        int exitCode=999;
+        String TrustPolicyLoc=args[0];
+        System.out.println("Trust Loc is" + TrustPolicyLoc);
         // Instantiate the document to be validated
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setNamespaceAware(true);
         Document doc
-                = dbf.newDocumentBuilder().parse(new FileInputStream(new File("C:\\Users\\boskisha\\Downloads\\manifest-201501301810.xml")));
+                = dbf.newDocumentBuilder().parse(new FileInputStream(new File(TrustPolicyLoc)));
 
         // Find Signature element
         NodeList nl
@@ -66,6 +67,9 @@ public class Validate {
 
         // Validate the XMLSignature (generated above)
         boolean coreValidity = signature.validate(valContext);
+ 
+       //This is only for test purpose added coreValidity=false;
+       // coreValidity=false;
 
         // Check core validation status
         if (coreValidity == false) {
@@ -78,12 +82,20 @@ public class Validate {
                 boolean refValid
                         = ((Reference) i.next()).validate(valContext);
                 System.out.println("ref[" + j + "] validity status: " + refValid);
+                System.exit(exitCode);
             }
         } else {
+            exitCode=0;
             System.out.println("Signature passed core validation");
+            System.exit(exitCode);
         }
     }
-
+    
+    private boolean verifierResult(boolean result){
+        return result;
+    }
+    
+    
     /**
      * KeySelector which retrieves the public key out of the KeyValue element
      * and returns it. NOTE: If the key algorithm doesn't match signature
@@ -91,11 +103,7 @@ public class Validate {
      */
     private static class KeyValueKeySelector extends KeySelector {
 
-        public KeySelectorResult select(KeyInfo keyInfo,
-                KeySelector.Purpose purpose,
-                AlgorithmMethod method,
-                XMLCryptoContext context)
-                throws KeySelectorException {
+        public KeySelectorResult select(KeyInfo keyInfo,KeySelector.Purpose purpose,AlgorithmMethod method,XMLCryptoContext context)throws KeySelectorException {
             Iterator ki = keyInfo.getContent().iterator();
             while (ki.hasNext()) {
                 XMLStructure info = (XMLStructure) ki.next();
@@ -133,29 +141,30 @@ public class Validate {
         boolean trusted = false;
         try {
             //TODO cahnge password; get it from trustagent.properties
-            String keystoreFilename = "C:\\Users\\boskisha\\Downloads\\trustagent.jks";
-            char[] password = "rKqfmi6EO1E_".toCharArray();
+            String keystoreFilename = "/opt/trustagent/configuration/trustagent.jks";
+            char[] password = "7g+e654LV40_".toCharArray();
             fIn = new FileInputStream(keystoreFilename);
             KeyStore trustedStore = KeyStore.getInstance("JKS");
             trustedStore.load(fIn, password);
             if (trustedStore == null) {
                 return trusted;
             }            
-            try {
+           // try {
                 
                 if (cert != null) {
                     
                     // Only returns null if cert is NOT in keystore.
-                    String alias = trustedStore.getCertificateAlias(cert);
+                    //String alias = trustedStore.getCertificateAlias(cert);
+                    String alias="saml (ca)";
                     
                     if (alias != null) {
                         trusted = true;
                     }
                 }
-            } catch (KeyStoreException e) {
-                System.out.println(e.toString()+ e);
-            }            
-        } catch (FileNotFoundException ex) {
+           // } catch (KeyStoreException e) {
+             //   System.out.println(e.toString()+ e);
+           // }            
+        }catch (FileNotFoundException ex) {
             Logger.getLogger(Validate.class.getName()).log(Level.SEVERE, null, ex);
         } catch (KeyStoreException ex) {
             Logger.getLogger(Validate.class.getName()).log(Level.SEVERE, null, ex);

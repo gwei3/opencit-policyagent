@@ -1,5 +1,12 @@
 #!/bin/bash
+
+set -x
+
 logfile=/var/log/mhagent.log
+
+export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
+export PATH=$PATH:/usr/lib/jvm/java-7-openjdk-amd64/jre/bin
+export CLASSPATH=/usr/lib/jvm/java-7-openjdk-amd64/lib/
 
 # init
 if [ ! -f $logfile ]; then touch $logfile; fi
@@ -180,11 +187,50 @@ mh_launch() {
     #if [ -f /var/lib/nova/instances/_base/$BASE_IMAGE ]; then
     if [ -f $TARGET ]; then
       mh_log "Found base image: $TARGET"
+
+
+     #Verify the Trust Policy Signature here
+      trustPolicyLoc=$TARGET
+      trustPolicyLoc="${trustPolicyLoc}.xml"
+
+      echo "Trust Policy Loc is $trustPolicyLoc"
+
+     if [ -n "$trustPolicyLoc" ]; then
+     #Call the Verifier Java snippet
+     java -classpath  "$verifierJavaLoc" "$javaClassName" "$trustPolicyLoc"
+     exitStatus=$?
+     echo "VerifierResult value is $exitStatus"
+     if [ "$exitStatus" -ne 0 ]; then
+        echo "***The signature is UNtrusted***"
+
+      #uncomment all the mh_log part when integrated with Policy Agent
+      mh_log "***The signature is UNtrusted***"
+
+      echo "***VM launch process will be aborted***"
+      mh_log "***VM launch process will be aborted***"
+      exit 1
+    fi
+
+    echo "Signature is verified and trusted"
+    mh_log "Signature is verified and trusted"
+    #mh_log "*** Signature is verified and Trusted***"
+   fi
+
+   echo "Completed the Verfier"
+
       #md5sum /var/lib/nova/instances/_base/$BASE_IMAGE >> $logfile
       # We rely on mh_decrypt to detect if the file is encrypted or not
       # (it could already be decrypted if this isn't the first launch)
       #mh_decrypt /var/lib/nova/instances/_base/$BASE_IMAGE >> $logfile
-      mh_decrypt $TARGET >> $logfile
+
+      if [ ! -z $CHECKSUM ] && [ ! -z $DEK_URL ]; then
+         echo "Call the MHdecrypt func"
+         mh_decrypt $TARGET >> $logfile
+      else
+          echo "Image CheckSum and DEK url are empty"
+          echo "Image is not encrypted"
+          exit 1
+      fi
       # Either way we check that now the image checksum should match
       # what was passed in via --checksum
       #local current_md5=$(md5 /var/lib/nova/instances/_base/$BASE_IMAGE)
@@ -317,6 +363,13 @@ mh_request_dek() {
 
 mh_log "$@"
 parse_args $@
+
+trustPolicyLoc=$TARGET + ".xml"
+echo "Trust Policy Loc is $trustPolicyLoc"
+
+
+
+mh_log "Trust Policy location: $trustPolicyLoc"
 
 case "$1" in
   version)
