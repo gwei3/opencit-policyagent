@@ -3,6 +3,8 @@
 set -x
 
 logfile=/var/log/mhagent.log
+verifierJavaLoc=/root/preeti-PA/dcg_security-policyagent/linux/ubuntu/src/main/resources/
+javaClassName=Validate
 
 export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
 export PATH=$PATH:/usr/lib/jvm/java-7-openjdk-amd64/jre/bin
