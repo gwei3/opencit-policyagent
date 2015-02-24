@@ -42,14 +42,21 @@ public class Validate {
         String TrustPolicyLoc=args[0];
         System.out.println("Trust Loc is" + TrustPolicyLoc);
         // Instantiate the document to be validated
+//tmp code delete it
+System.out.println("Creating file inst: "+TrustPolicyLoc);
+File f = new File(TrustPolicyLoc);
+System.out.println("Does file exist? "+ f.exists());
+//end of tmp code
+
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setNamespaceAware(true);
         Document doc
                 = dbf.newDocumentBuilder().parse(new FileInputStream(new File(TrustPolicyLoc)));
-
+        System.out.println("Debug Stat 2");
         // Find Signature element
         NodeList nl
                 = doc.getElementsByTagNameNS(XMLSignature.XMLNS, "Signature");
+         System.out.println("Debug Stat 3");
         if (nl.getLength() == 0) {
             throw new Exception("Cannot find Signature element");
         }
@@ -57,7 +64,7 @@ public class Validate {
         // Create a DOM XMLSignatureFactory that will be used to unmarshal the
         // document containing the XMLSignature
         XMLSignatureFactory fac = XMLSignatureFactory.getInstance("DOM");
-
+         System.out.println("Debug Stat 4");
         // Create a DOMValidateContext and specify a KeyValue KeySelector
         // and document context
         DOMValidateContext valContext = new DOMValidateContext(new KeyValueKeySelector(), nl.item(0));
@@ -82,11 +89,13 @@ public class Validate {
                 boolean refValid
                         = ((Reference) i.next()).validate(valContext);
                 System.out.println("ref[" + j + "] validity status: " + refValid);
+                System.out.println("Exit Code is:" + exitCode);
                 System.exit(exitCode);
             }
         } else {
             exitCode=0;
             System.out.println("Signature passed core validation");
+            System.out.println("Exit Code is:" + exitCode);
             System.exit(exitCode);
         }
     }
@@ -141,7 +150,9 @@ public class Validate {
         boolean trusted = false;
         try {
             //TODO cahnge password; get it from trustagent.properties
+            System.out.println("isTrustCertificate Method");
             String keystoreFilename = "/opt/trustagent/configuration/trustagent.jks";
+            System.out.println("KeyStoreFilename:" + keystoreFilename);
             char[] password = "7g+e654LV40_".toCharArray();
             fIn = new FileInputStream(keystoreFilename);
             KeyStore trustedStore = KeyStore.getInstance("JKS");
@@ -181,6 +192,7 @@ public class Validate {
                 Logger.getLogger(Validate.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
+       System.out.println("Value of trusted: " + trusted);
         return trusted;
     }
 

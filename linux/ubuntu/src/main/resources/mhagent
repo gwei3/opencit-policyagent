@@ -1,14 +1,13 @@
 #!/bin/bash
-
-set -x
-
 logfile=/var/log/mhagent.log
-verifierJavaLoc=/root/preeti-PA/dcg_security-policyagent/linux/ubuntu/src/main/resources/
+#verifierJavaLoc=/root/preeti-PA/dcg_security-policyagent/linux/ubuntu/src/main/resources/
+verifierJavaLoc=/var/lib/nova/ #/opt/policyagent/java/
 javaClassName=Validate
 
 export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
 export PATH=$PATH:/usr/lib/jvm/java-7-openjdk-amd64/jre/bin
 export CLASSPATH=/usr/lib/jvm/java-7-openjdk-amd64/lib/
+
 
 # init
 if [ ! -f $logfile ]; then touch $logfile; fi
@@ -129,10 +128,13 @@ mh_decrypt() {
   # request it from the key mgmt svc and place it in the var MH_DEK
   # in order to request the dek we need to know the url from where to download
   # it, which must be provided as an argument --dek-url
+  # ravindra: commenting the call mh_request_dek and putting hardcoded key 
   mh_request_dek $DEK_URL
   # XXX TODO (see note in mh_encrypt) need to change ciphers to aes-256-cbc and also add hmac for authentication!
   #openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass pass:password
-  openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass env:MH_DEK
+  export MH_DEK_DECODED=`openssl enc -base64 -d <<< $MH_DEK`
+  mh_log "mh dek decoded::: $MH_DEK_DECODED";
+  openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass env:MH_DEK_DECODED
   if ! openssl_encrypted_file $decfile; then
     if [ -n "$IMAGE_ID" ]; then
       mh_log "Decrypted image: $IMAGE_ID"
@@ -189,50 +191,29 @@ mh_launch() {
     #if [ -f /var/lib/nova/instances/_base/$BASE_IMAGE ]; then
     if [ -f $TARGET ]; then
       mh_log "Found base image: $TARGET"
-
-
-     #Verify the Trust Policy Signature here
-      trustPolicyLoc=$TARGET
-      trustPolicyLoc="${trustPolicyLoc}.xml"
-
-      echo "Trust Policy Loc is $trustPolicyLoc"
-
-     if [ -n "$trustPolicyLoc" ]; then
-     #Call the Verifier Java snippet
-     java -classpath  "$verifierJavaLoc" "$javaClassName" "$trustPolicyLoc"
-     exitStatus=$?
-     echo "VerifierResult value is $exitStatus"
-     if [ "$exitStatus" -ne 0 ]; then
-        echo "***The signature is UNtrusted***"
-
-      #uncomment all the mh_log part when integrated with Policy Agent
-      mh_log "***The signature is UNtrusted***"
-
-      echo "***VM launch process will be aborted***"
-      mh_log "***VM launch process will be aborted***"
-      exit 1
-    fi
-
-    echo "Signature is verified and trusted"
-    mh_log "Signature is verified and trusted"
-    #mh_log "*** Signature is verified and Trusted***"
-   fi
-
-   echo "Completed the Verfier"
+      mh_log "***BASE IMAGE FOUND"
+      #verify the Trust Policy Signature snippet here
+      trustPolicyLocation=$TARGET
+      trustPolicyLocation="${trustPolicyLocation}.xml"
+      sleep 300
+      cat  $trustPolicyLocation > /var/lib/nova/trustPolicy
+      readTP=$(cat $trustPolicyLocation)
+      mh_log "****TrustPolicy contents: $readTP"
+      mh_log "*****TrustPolicy Location: $trustPolicyLocation"
+      
+     if [ -n "$trustPolicyLocation" ]; then
+        #Call the Verifier Java snippet
+        mh_log "Java Func call print here: /usr/bin/java -classpath  $verifierJavaLoc $javaClassName $trustPolicyLocation"
+        /usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trustPolicyLocation" 2>&1 > /var/lib/nova/javaout.log
+        exitStatus=$(echo $?)
+        mh_log "Print the exit Code for Java func: $exitStatus"
+      fi
 
       #md5sum /var/lib/nova/instances/_base/$BASE_IMAGE >> $logfile
       # We rely on mh_decrypt to detect if the file is encrypted or not
       # (it could already be decrypted if this isn't the first launch)
       #mh_decrypt /var/lib/nova/instances/_base/$BASE_IMAGE >> $logfile
-
-      if [ ! -z $CHECKSUM ] && [ ! -z $DEK_URL ]; then
-         echo "Call the MHdecrypt func"
-         mh_decrypt $TARGET >> $logfile
-      else
-          echo "Image CheckSum and DEK url are empty"
-          echo "Image is not encrypted"
-          exit 1
-      fi
+      mh_decrypt $TARGET >> $logfile
       # Either way we check that now the image checksum should match
       # what was passed in via --checksum
       #local current_md5=$(md5 /var/lib/nova/instances/_base/$BASE_IMAGE)
@@ -327,10 +308,10 @@ mh_request_dek() {
     dekdir=/tmp
   else
     mh_fix_aik
-    aikdir=/etc/intel/cloudsecurity/cert
+    aikdir=/opt/trustagent/configuration/
     dekdir=/var/lib/nova
   fi
-  if [ ! -f $aikdir/aikpubkey.pem ]; then
+  if [ ! -f $aikdir/aik.pem ]; then
     mh_log "Error: Missing AIK Public Key";
     echo "Missing AIK Public Key";
     exit 1
@@ -341,7 +322,7 @@ mh_request_dek() {
 
   mh_log "Requesting DEK from: $url"
 
-  curl --insecure --silent -X POST -H "Content-Type: text/plain" --data-binary @$aikdir/aikpubkey.pem "$url" > $dekdir/mh.dek.base64
+  curl --insecure --silent -X POST -H "Content-Type: text/plain" --data-binary @$aikdir/aik.pem "$url" > $dekdir/mh.dek.base64
 
   #export MH_DEK_RAW=`cat $dekdir/mh.dek`
   export MH_DEK_BASE64=`cat $dekdir/mh.dek.base64`
@@ -365,13 +346,6 @@ mh_request_dek() {
 
 mh_log "$@"
 parse_args $@
-
-trustPolicyLoc=$TARGET + ".xml"
-echo "Trust Policy Loc is $trustPolicyLoc"
-
-
-
-mh_log "Trust Policy location: $trustPolicyLoc"
 
 case "$1" in
   version)
