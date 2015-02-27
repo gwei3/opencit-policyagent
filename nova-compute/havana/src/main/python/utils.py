@@ -652,25 +652,18 @@ def fetch_image(context, target, image_id, instance, user_id, project_id, max_si
         subprocess.call(['/usr/local/bin/mhagent','log','utils fetch_image 1 without info','--project-id='+project_id,'--instance-name='+instance['name'],'--base-image='+image_id,'--image-id='+image_id,'--target='+target])
     # MH start of mhagent hook for logging
 
-    images.fetch_to_raw(context, image_id, target, user_id, project_id, max_size=max_size)   
-
+    images.fetch_to_raw(context, image_id, target, user_id, project_id, max_size=max_size)
 
     # MH start of mhagent hook for image download and decryption
-    if 'mh_encrypted' in instance and 'mh_checksum' in instance and 'mh_dek_url' in instance:
+    #if 'manifest_uuid' in instance:
+    #if 'mh_encrypted' in instance and 'mh_checksum' in instance and 'mh_dek_url' in instance:
+    instance_dir = get_instance_path(instance)
+    LOG.info(_("==========Instance Dir Loc===========" + instance_dir))
+    if 'manifest_uuid' in instance:
         LOG.info(_("launching decrypted the image"))
-       
-        #Logging the info Encryption received
-        subprocess.call(['/usr/local/bin/mhagent','log','mh_encrypted flag is true','--project-id='+project_id,'--instance-name='+instance['name'],'--base-image='+image_id,'--image-id='+image_id,'--target='+target,'--checksum='+instance['mh_checksum'],'--dek-url='+instance['mh_dek_url']])
-
-        subprocess.call(['/usr/local/bin/mhagent','launch','--project-id='+project_id,'--instance-name='+instance['name'],'--base-image='+image_id,'--image-id='+image_id,'--target='+target,'--checksum='+instance['mh_checksum'],'--dek-url='+instance['mh_dek_url']])
+        subprocess.check_call(['/usr/local/bin/mhagent','launch','--project-id='+project_id,'--instance-name='+instance['name'],'--base-image='+image_id,'--image-id='+image_id,'--target='+target,'--checksum='+instance['mh_checksum'],'--dek-url='+instance['mh_dek_url'],'--manifest_uuid='+instance['manifest_uuid'],'--instance_dir='+instance_dir])
     else:
-        
         subprocess.call(['/usr/local/bin/mhagent','log','utils fetch_image 2 without info','--project-id='+project_id,'--instance-name='+instance['name'],'--base-image='+image_id,'--image-id='+image_id,'--target='+target])
-
-    #Logging the policy agent launch call for plain image
-    subprocess.call(['/usr/local/bin/mhagent','log','Launching policy agent for plain image','--project-id='+project_id,'--instance-name='+instance['name'],'--base-image='+image_id,'--image-id='+image_id,'--target='+target,'--checksum='+instance['mh_checksum'],'--dek-url='+instance['mh_dek_url']])
-
-    subprocess.call(['/usr/local/bin/mhagent','launch','--project-id='+project_id,'--instance-name='+instance['name'],'--base-image='+image_id,'--image-id='+image_id,'--target='+target,'--checksum=''','--dek-url=''']])
     # MH end of mhagent hook for image download and decryption
 
 

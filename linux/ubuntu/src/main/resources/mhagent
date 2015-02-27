@@ -8,6 +8,7 @@ export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
 export PATH=$PATH:/usr/lib/jvm/java-7-openjdk-amd64/jre/bin
 export CLASSPATH=/usr/lib/jvm/java-7-openjdk-amd64/lib/
 
+source /opt/policyagent/configuration/admin-openrc.sh
 
 # init
 if [ ! -f $logfile ]; then touch $logfile; fi
@@ -153,7 +154,7 @@ mh_decrypt() {
 }
 
 parse_args() {
-  if ! options=$(getopt -n mhagent -l project-id:,instance-name:,base-image:,image-id:,target:,checksum:,dek-url: -- "$@"); then exit 1; fi
+  if ! options=$(getopt -n mhagent -l project-id:,instance-name:,base-image:,image-id:,target:,checksum:,dek-url:,manifest_uuid:,instance_dir: -- "$@"); then exit 1; fi
   eval set -- "$options"
   while [ $# -gt 0 ]
   do
@@ -165,10 +166,14 @@ parse_args() {
       --target) TARGET="$2"; shift;;
       --checksum) CHECKSUM="$2"; shift;;
       --dek-url) DEK_URL="$2"; shift;;
+      --manifest_uuid) MANIFEST_UUID="$2";shift;;
+      --instance_dir) INSTANCE_DIR="$2";shift;;
     esac
     shift
   done
 }
+
+
 
 mh_launch() {
   mh_log "mh_launch: $@"
@@ -179,6 +184,8 @@ mh_launch() {
   mh_log "Target: $TARGET"
   mh_log "Checksum: $CHECKSUM"
   mh_log "DEK URL: $DEK_URL"
+  mh_log "MANIFEST UUID: $MANIFEST_UUID"  
+  mh_log "INSTANCE_DIR: $INSTANCE_DIR"
   #if [ -n "$BASE_IMAGE" ]; then
   if [ -n "$TARGET" ]; then
     #waitcounter=0
@@ -192,19 +199,34 @@ mh_launch() {
     if [ -f $TARGET ]; then
       mh_log "Found base image: $TARGET"
       mh_log "***BASE IMAGE FOUND"
+
+      #download the trust policy from the glance and store it in the location=Target
       #verify the Trust Policy Signature snippet here
-      trustPolicyLocation=$TARGET
-      trustPolicyLocation="${trustPolicyLocation}.xml"
-      sleep 300
-      cat  $trustPolicyLocation > /var/lib/nova/trustPolicy
-      readTP=$(cat $trustPolicyLocation)
-      mh_log "****TrustPolicy contents: $readTP"
-      mh_log "*****TrustPolicy Location: $trustPolicyLocation"
+      #trustPolicyTarget=$TARGET
+      trustPolicyTarget="${TARGET}.xml"
+      dest_dir=/var/lib/nova/instances/
       
-     if [ -n "$trustPolicyLocation" ]; then
+      glance image-download $MANIFEST_UUID > $trustPolicyTarget
+      download_status=$(echo $?)
+      cat $trustPolicyTarget >> /var/log/mhagent.log
+      if [ $download_status -eq 0 ]; then
+           cp $trustPolicyTarget $INSTANCE_DIR/"manifest.xml"
+      fi
+      #echo " ****************************************"
+      #echo "Print the downloaded policy:"
+      #cat $trustPolicyLocation
+      #echo " ****************************************"
+      #cat  $trustPolicyLocation > /var/lib/nova/trustPolicy
+      #readTP=$(cat $trustPolicyLocation)
+      #mh_log "****TrustPolicy contents:" 
+      #cat $trustPolicyTarget > $readTP
+      #mh_log "$readTP"
+      mh_log "*****TrustPolicy Location: $trustPolicyTarget"
+      
+     if [ -n "$trustPolicyTarget" ]; then
         #Call the Verifier Java snippet
-        mh_log "Java Func call print here: /usr/bin/java -classpath  $verifierJavaLoc $javaClassName $trustPolicyLocation"
-        /usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trustPolicyLocation" 2>&1 > /var/lib/nova/javaout.log
+        mh_log "Java Func call print here: /usr/bin/java -classpath  $verifierJavaLoc $javaClassName $trustPolicyTarget"
+        /usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trustPolicyTarget" 2>&1 > /var/lib/nova/javaout.log
         exitStatus=$(echo $?)
         mh_log "Print the exit Code for Java func: $exitStatus"
       fi
@@ -344,8 +366,11 @@ mh_request_dek() {
   mh_log "MH_DEK_BASE64: $MH_DEK_BASE64"
 }
 
+
 mh_log "$@"
 parse_args $@
+
+
 
 case "$1" in
   version)

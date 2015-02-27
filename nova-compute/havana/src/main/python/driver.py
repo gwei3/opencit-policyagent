@@ -2447,13 +2447,33 @@ class LibvirtDriver(driver.ComputeDriver):
 
             (image_service, image_id) = glance.get_remote_image_service(context, instance['image_ref'])
             image_meta = compute_utils.get_image_metadata(context, image_service, image_id, instance)
-
+            
+            # MH start of image manifest download. Delete this part here-thsi is temporary for testing only
+            #if 'properties' in image_meta and 'manifest_uuid' in image_meta['properties']:
+                #manifest_uuid = image_meta['properties']['manifest_uuid']
+                #manifest_filename = 'manifest.xml'
+                #LOG.info(_("manifest uuid=" + str(manifest_uuid) + " for image " + disk_images['image_id']))
+                #LOG.info(_("Downloading manifest before the image"))
+                #LOG.info(_("******Log Context property:"))
+                #LOG.info(_( context))
+                #manifest_target = os.path.join(CONF.instances_path, CONF.base_dir_name, root_fname + ".xml")
+                #if os.path.exists(manifest_target):
+                    #os.remove(manifest_target)
+                #images.fetch(context, manifest_uuid, manifest_target, instance['user_id'], instance['project_id'], max_size=None)
+                #instance_dir = libvirt_utils.get_instance_path(instance)
+                #manifest_dest = os.path.join(instance_dir, manifest_filename)
+                #LOG.info(_("copying manifest from " + manifest_target + " to " + manifest_dest))
+                #libvirt_utils.execute('cp', manifest_target, manifest_dest)
+                # MH end of image manifest download
             # MH start of mhagent hook for disk download and decryption
             if 'properties' in image_meta and 'mh_encrypted' in image_meta['properties']:
                 instance['mh_encrypted'] = image_meta['properties']['mh_encrypted']
                 instance['mh_checksum'] = image_meta['properties']['mh_checksum']
                 instance['mh_dek_url'] = image_meta['properties']['mh_dek_url']
                 instance['manifest_uuid'] = image_meta['properties']['manifest_uuid']
+
+            for prprty in image_meta['properties']:
+               LOG.info(_("******LOG INFO driver- image meta property:" + prprty + image_meta['properties'][prprty]))
 
             image('disk').cache(fetch_func=libvirt_utils.fetch_image,
                                 context=context,
@@ -2466,18 +2486,18 @@ class LibvirtDriver(driver.ComputeDriver):
             # MH end of mhagent hook for disk download and decryption
 
             # MH start of image manifest download
-            if 'properties' in image_meta and 'manifest_uuid' in image_meta['properties']:
-                manifest_uuid = image_meta['properties']['manifest_uuid']
-                manifest_filename = 'manifest.xml'
-                LOG.info(_("manifest uuid=" + str(manifest_uuid) + " for image " + disk_images['image_id']))
-                manifest_target = os.path.join(CONF.instances_path, CONF.base_dir_name, root_fname + ".xml")
-                if os.path.exists(manifest_target):
-                    os.remove(manifest_target)
-                images.fetch(context, manifest_uuid, manifest_target, instance['user_id'], instance['project_id'], max_size=None)
-                instance_dir = libvirt_utils.get_instance_path(instance)
-                manifest_dest = os.path.join(instance_dir, manifest_filename)
-                LOG.info(_("copying manifest from " + manifest_target + " to " + manifest_dest))
-                libvirt_utils.execute('cp', manifest_target, manifest_dest)            
+            #if 'properties' in image_meta and 'manifest_uuid' in image_meta['properties']:
+                #manifest_uuid = image_meta['properties']['manifest_uuid']
+                #manifest_filename = 'manifest.xml'
+                #LOG.info(_("manifest uuid=" + str(manifest_uuid) + " for image " + disk_images['image_id']))
+                #manifest_target = os.path.join(CONF.instances_path, CONF.base_dir_name, root_fname + ".xml")
+                #if os.path.exists(manifest_target):
+                    #os.remove(manifest_target)
+                #images.fetch(context, manifest_uuid, manifest_target, instance['user_id'], instance['project_id'], max_size=None)
+                #instance_dir = libvirt_utils.get_instance_path(instance)
+                #manifest_dest = os.path.join(instance_dir, manifest_filename)
+                #LOG.info(_("copying manifest from " + manifest_target + " to " + manifest_dest))
+                #libvirt_utils.execute('cp', manifest_target, manifest_dest)            
                 # MH end of image manifest download
 
         # Lookup the filesystem type if required
