@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -39,24 +40,19 @@ import org.w3c.dom.NodeList;
 public class Validate {
     public static void main(String[] args) throws Exception {
         int exitCode=999;
-        String TrustPolicyLoc=args[0];
-        System.out.println("Trust Loc is" + TrustPolicyLoc);
-        // Instantiate the document to be validated
-//tmp code delete it
-System.out.println("Creating file inst: "+TrustPolicyLoc);
-File f = new File(TrustPolicyLoc);
-System.out.println("Does file exist? "+ f.exists());
-//end of tmp code
+        String TrustPolicyLocation=args[0];
+        System.out.println("Trust Loc is" + TrustPolicyLocation);
 
+        // Instantiate the document to be validated
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setNamespaceAware(true);
         Document doc
-                = dbf.newDocumentBuilder().parse(new FileInputStream(new File(TrustPolicyLoc)));
-        System.out.println("Debug Stat 2");
+                = dbf.newDocumentBuilder().parse(new FileInputStream(new File(TrustPolicyLocation)));
+//        System.out.println("Debug Stat 2");
         // Find Signature element
         NodeList nl
                 = doc.getElementsByTagNameNS(XMLSignature.XMLNS, "Signature");
-         System.out.println("Debug Stat 3");
+//         System.out.println("Debug Stat 3");
         if (nl.getLength() == 0) {
             throw new Exception("Cannot find Signature element");
         }
@@ -64,7 +60,7 @@ System.out.println("Does file exist? "+ f.exists());
         // Create a DOM XMLSignatureFactory that will be used to unmarshal the
         // document containing the XMLSignature
         XMLSignatureFactory fac = XMLSignatureFactory.getInstance("DOM");
-         System.out.println("Debug Stat 4");
+//         System.out.println("Debug Stat 4");
         // Create a DOMValidateContext and specify a KeyValue KeySelector
         // and document context
         DOMValidateContext valContext = new DOMValidateContext(new KeyValueKeySelector(), nl.item(0));
@@ -148,12 +144,25 @@ System.out.println("Does file exist? "+ f.exists());
     private static boolean isTrustedCertificate(X509Certificate cert) {
         FileInputStream fIn = null;
         boolean trusted = false;
+        char[] password=new char[30];
         try {
-            //TODO cahnge password; get it from trustagent.properties
-            System.out.println("isTrustCertificate Method");
             String keystoreFilename = "/opt/trustagent/configuration/trustagent.jks";
-            System.out.println("KeyStoreFilename:" + keystoreFilename);
-            char[] password = "7g+e654LV40_".toCharArray();
+       
+            //Parse the file to retrieve the trust agent keystore password
+            String filepath="/opt/trustagent/configuration/trustagent.properties";
+            String keyword="password";
+            final Scanner scanner = new Scanner(new File(filepath));
+            while (scanner.hasNextLine()) {
+                   final String readLine = scanner.nextLine();
+                   if(readLine.contains(keyword)) { 
+                      String delimiter="=";
+                      int startindex=readLine.indexOf(delimiter);
+                      int endindex=readLine.length();
+                      password=readLine.substring(startindex+1, endindex).toCharArray();
+                      break;
+                    }
+            }
+            
             fIn = new FileInputStream(keystoreFilename);
             KeyStore trustedStore = KeyStore.getInstance("JKS");
             trustedStore.load(fIn, password);
@@ -163,10 +172,10 @@ System.out.println("Does file exist? "+ f.exists());
            // try {
                 
                 if (cert != null) {
-                    
                     // Only returns null if cert is NOT in keystore.
-                    //String alias = trustedStore.getCertificateAlias(cert);
-                    String alias="saml (ca)";
+                    String alias = trustedStore.getCertificateAlias(cert);
+//                    String alias="saml (ca)";
+                    System.out.println("Alias value is:" + alias);
                     
                     if (alias != null) {
                         trusted = true;
