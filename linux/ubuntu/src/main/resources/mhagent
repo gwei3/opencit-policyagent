@@ -1,5 +1,9 @@
 #!/bin/bash
 logfile=/var/log/mhagent.log
+configfile=/opt/policyagent/configuration/policyagent.env
+
+KMSPROXY_IPADDRESS=$(grep "KMS_PROXY_IP" $configfile | cut -d "=" -f2)
+
 #verifierJavaLoc=/root/preeti-PA/dcg_security-policyagent/linux/ubuntu/src/main/resources/
 verifierJavaLoc=/var/lib/nova/ #/opt/policyagent/java/
 javaClassName=Validate
@@ -110,6 +114,9 @@ mh_encrypt() {
 mh_decrypt() {
   local infile="$1"
   local decfile="$infile.dec"
+  
+   PRIVATE_KEY=/opt/trustagent/configuration/bindingkey.blob
+  
   if [ ! -f $infile ]; then
     echo "error: failed to decrypt $infile: file not found"
     return 1
@@ -133,9 +140,18 @@ mh_decrypt() {
   mh_request_dek $DEK_URL
   # XXX TODO (see note in mh_encrypt) need to change ciphers to aes-256-cbc and also add hmac for authentication!
   #openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass pass:password
-  export MH_DEK_DECODED=`openssl enc -base64 -d <<< $MH_DEK`
-  mh_log "mh dek decoded::: $MH_DEK_DECODED";
-  openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass env:MH_DEK_DECODED
+  #Uncomment the following line with new KMS integration
+    #KEY_ID=$INSTANCE_DIR/$IMAGE_ID".key"
+    #tpm_unbindaeskey -k $PRIVATE_KEY -i $KEY_ID  -o $KEY_ID.dek
+    #openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass env:$KEY_ID.dek
+  #End of decrytion
+
+  #delete these lines after uncommention above block
+   export MH_DEK_DECODED=`openssl enc -base64 -d <<< $MH_DEK`
+   mh_log "mh dek decoded::: $MH_DEK_DECODED";
+   openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass env:MH_DEK_DECODED
+ #end of delete
+
   if ! openssl_encrypted_file $decfile; then
     if [ -n "$IMAGE_ID" ]; then
       mh_log "Decrypted image: $IMAGE_ID"
@@ -154,6 +170,7 @@ mh_decrypt() {
 }
 
 parse_args() {
+  #if ! options=$(getopt -n mhagent -l project-id:,instance-name:,base-image:,image-id:,target:,checksum:,dek-url: -- "$@"); then exit 1; fi
   if ! options=$(getopt -n mhagent -l project-id:,instance-name:,base-image:,image-id:,target:,checksum:,dek-url:,manifest_uuid:,instance_dir: -- "$@"); then exit 1; fi
   eval set -- "$options"
   while [ $# -gt 0 ]
@@ -173,8 +190,6 @@ parse_args() {
   done
 }
 
-
-
 mh_launch() {
   mh_log "mh_launch: $@"
   mh_log "Project Id: $PROJECT_ID"
@@ -184,8 +199,9 @@ mh_launch() {
   mh_log "Target: $TARGET"
   mh_log "Checksum: $CHECKSUM"
   mh_log "DEK URL: $DEK_URL"
-  mh_log "MANIFEST UUID: $MANIFEST_UUID"  
+  mh_log "MANIFEST UUID: $MANIFEST_UUID"
   mh_log "INSTANCE_DIR: $INSTANCE_DIR"
+
   #if [ -n "$BASE_IMAGE" ]; then
   if [ -n "$TARGET" ]; then
     #waitcounter=0
@@ -199,37 +215,41 @@ mh_launch() {
     if [ -f $TARGET ]; then
       mh_log "Found base image: $TARGET"
       mh_log "***BASE IMAGE FOUND"
-
-      #download the trust policy from the glance and store it in the location=Target
+    
+     #download the trust policy from the glance and store it in the location=Target
       #verify the Trust Policy Signature snippet here
       #trustPolicyTarget=$TARGET
       trustPolicyTarget="${TARGET}.xml"
       dest_dir=/var/lib/nova/instances/
-      
+
       glance image-download $MANIFEST_UUID > $trustPolicyTarget
       download_status=$(echo $?)
-      cat $trustPolicyTarget >> /var/log/mhagent.log
+      #cat $trustPolicyTarget >> /var/log/mhagent.log
       if [ $download_status -eq 0 ]; then
            cp $trustPolicyTarget $INSTANCE_DIR/"manifest.xml"
       fi
-      #echo " ****************************************"
-      #echo "Print the downloaded policy:"
-      #cat $trustPolicyLocation
-      #echo " ****************************************"
-      #cat  $trustPolicyLocation > /var/lib/nova/trustPolicy
-      #readTP=$(cat $trustPolicyLocation)
-      #mh_log "****TrustPolicy contents:" 
-      #cat $trustPolicyTarget > $readTP
-      #mh_log "$readTP"
-      mh_log "*****TrustPolicy Location: $trustPolicyTarget"
-      
-     if [ -n "$trustPolicyTarget" ]; then
+
+     mh_log "*****TrustPolicy Location: $trustPolicyTarget"
+
+     #if [ -n "$trustPolicyTarget" ]; then
         #Call the Verifier Java snippet
         mh_log "Java Func call print here: /usr/bin/java -classpath  $verifierJavaLoc $javaClassName $trustPolicyTarget"
-        /usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trustPolicyTarget" 2>&1 > /var/lib/nova/javaout.log
-        exitStatus=$(echo $?)
-        mh_log "Print the exit Code for Java func: $exitStatus"
-      fi
+        #/usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trustPolicyTarget"
+        #verifier_exit_status=$(echo $?)
+        #mh_log "signature verfier ExitCode: $verifier_exit_status"
+       #if [ $verifier_exit_status -eq 0 ]; then
+              #mh_log " Signature verification was successful"
+              #mh_log "policy agent will proceed to decrypt the image"
+       #else
+             #mh_log "Signature verification was unsuccessful. The launch process wil be aborted"
+             #exit 1
+       #fi
+     #fi
+
+     #if the verification was successful, perform the xml parsing here
+     #cat $trustPolicyTarget | xmlstarlet fo --noindent | sed -e 's/ xmlns.*=".*"//g' | xmlstarlet sel -t -c "/TrustPolicy/Whitelist" | xmlstarlet ed -u '/Whitelist/*' -v '' > /opt/policyagent/whitelist-files/manifestlist.xml
+
+
 
       #md5sum /var/lib/nova/instances/_base/$BASE_IMAGE >> $logfile
       # We rely on mh_decrypt to detect if the file is encrypted or not
@@ -330,7 +350,7 @@ mh_request_dek() {
     dekdir=/tmp
   else
     mh_fix_aik
-    aikdir=/opt/trustagent/configuration/
+    aikdir=/opt/trustagent/configuration
     dekdir=/var/lib/nova
   fi
   if [ ! -f $aikdir/aik.pem ]; then
@@ -345,6 +365,9 @@ mh_request_dek() {
   mh_log "Requesting DEK from: $url"
 
   curl --insecure --silent -X POST -H "Content-Type: text/plain" --data-binary @$aikdir/aik.pem "$url" > $dekdir/mh.dek.base64
+  #Uncomment the following line for new KMS integration and comment the above line
+  #Uncomment the below line to integrate the KMS proxy
+  #curl --proxy http://$KMSPROXY_IPADDRESS:9080 --verbose -X POST -H "Content-Type: application/x-pem-file" -H "Accept: application/octet-stream" --data-binary @$aikdir/aik.pem  "$url" > $INSTANCE_DIR/$IMAGE_ID".key"
 
   #export MH_DEK_RAW=`cat $dekdir/mh.dek`
   export MH_DEK_BASE64=`cat $dekdir/mh.dek.base64`
@@ -366,11 +389,8 @@ mh_request_dek() {
   mh_log "MH_DEK_BASE64: $MH_DEK_BASE64"
 }
 
-
 mh_log "$@"
 parse_args $@
-
-
 
 case "$1" in
   version)
