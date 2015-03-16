@@ -1,10 +1,12 @@
 #!/bin/bash
 logfile=/var/log/mhagent.log
 configfile=/opt/policyagent/configuration/policyagent.env
-verifierJavaLoc=/var/lib/nova/ #/opt/policyagent/java/
-javaClassName=Validate
 
 KMSPROXY_IPADDRESS=$(grep "KMS_PROXY_IP" $configfile | cut -d "=" -f2)
+
+#verifierJavaLoc=/root/preeti-PA/dcg_security-policyagent/linux/ubuntu/src/main/resources/
+verifierJavaLoc=/usr/local/bin/   #/var/lib/nova/ #/opt/policyagent/java/
+javaClassName=Validate
 
 export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
 export PATH=$PATH:/usr/lib/jvm/java-7-openjdk-amd64/jre/bin
@@ -112,6 +114,9 @@ mh_encrypt() {
 mh_decrypt() {
   local infile="$1"
   local decfile="$infile.dec"
+  
+   PRIVATE_KEY=/opt/trustagent/configuration/bindingkey.blob
+  
   if [ ! -f $infile ]; then
     echo "error: failed to decrypt $infile: file not found"
     return 1
@@ -135,25 +140,26 @@ mh_decrypt() {
   mh_request_dek $DEK_URL
   # XXX TODO (see note in mh_encrypt) need to change ciphers to aes-256-cbc and also add hmac for authentication!
   #openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass pass:password
-
   #Uncomment the following line with new KMS integration
     #KEY_ID=$INSTANCE_DIR/$IMAGE_ID".key"
     #tpm_unbindaeskey -k $PRIVATE_KEY -i $KEY_ID  -o $KEY_ID.dek
     #openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass env:$KEY_ID.dek
   #End of decrytion
 
-  export MH_DEK_DECODED=`openssl enc -base64 -d <<< $MH_DEK`
-  mh_log "mh dek decoded::: $MH_DEK_DECODED";
-  mh_log "openssl enc -d -aes-128-ofb -in $infile -out $decfile -pass env:MH_DEK_DECODED"
-  openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass env:MH_DEK_DECODED
-  opensslstat=$(echo $?)
-  mh_log "Print openssl-Stat $opensslstat"
+  #delete these lines after uncommention above block
+   export MH_DEK_DECODED=`openssl enc -base64 -d <<< $MH_DEK`
+   mh_log "mh dek decoded::: $MH_DEK_DECODED";
+   openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass env:MH_DEK_DECODED
+ #end of delete
+
   if ! openssl_encrypted_file $decfile; then
     if [ -n "$IMAGE_ID" ]; then
       mh_log "Decrypted image: $IMAGE_ID"
       # XXX DEBUG for debugging only - 
       cp $decfile /tmp/image.dec
+      mh_log "decfile Loc is: $decfile"
     fi
+    mh_log "infile is: $infile"
     mv $decfile $infile
     return 0
   fi
@@ -166,6 +172,7 @@ mh_decrypt() {
 }
 
 parse_args() {
+  #if ! options=$(getopt -n mhagent -l project-id:,instance-name:,base-image:,image-id:,target:,checksum:,dek-url: -- "$@"); then exit 1; fi
   if ! options=$(getopt -n mhagent -l project-id:,instance-name:,base-image:,image-id:,target:,checksum:,dek-url:,manifest_uuid:,instance_dir: -- "$@"); then exit 1; fi
   eval set -- "$options"
   while [ $# -gt 0 ]
@@ -185,8 +192,6 @@ parse_args() {
   done
 }
 
-
-
 mh_launch() {
   mh_log "mh_launch: $@"
   mh_log "Project Id: $PROJECT_ID"
@@ -196,101 +201,98 @@ mh_launch() {
   mh_log "Target: $TARGET"
   mh_log "Checksum: $CHECKSUM"
   mh_log "DEK URL: $DEK_URL"
-  mh_log "MANIFEST UUID: $MANIFEST_UUID"  
+  mh_log "MANIFEST UUID: $MANIFEST_UUID"
   mh_log "INSTANCE_DIR: $INSTANCE_DIR"
+
   #if [ -n "$BASE_IMAGE" ]; then
   if [ -n "$TARGET" ]; then
-    #waitcounter=0
-    #while [ ! -f /var/lib/nova/instances/_base/$BASE_IMAGE ] && [ $waitcounter -lt 10 ]; do
-    #  mh_log "File not found:  /var/lib/nova/instances/_base/$BASE_IMAGE"
-    #  waitcounter=$((waitcounter+1))
-    #  mh_log "Waiting to find it again; waitcounter=$waitcounter max 10"
-    #  sleep 1
-    #done
-    #if [ -f /var/lib/nova/instances/_base/$BASE_IMAGE ]; then
-    if [ -f $TARGET ]; then
-      mh_log "Found base image: $TARGET"
-      mh_log "***BASE IMAGE FOUND"
+     #waitcounter=0
+     #while [ ! -f /var/lib/nova/instances/_base/$BASE_IMAGE ] && [ $waitcounter -lt 10 ]; do
+     #  mh_log "File not found:  /var/lib/nova/instances/_base/$BASE_IMAGE"
+     #  waitcounter=$((waitcounter+1))
+     #  mh_log "Waiting to find it again; waitcounter=$waitcounter max 10"
+     #  sleep 1
+     #done
+     #if [ -f /var/lib/nova/instances/_base/$BASE_IMAGE ]; then
+     if [ -f $TARGET ]; then
+        mh_log "Found base image: $TARGET"
+        mh_log "***BASE IMAGE FOUND"
+        #download the trust policy from the glance and store it in the location=Target
+        #verify the Trust Policy Signature snippet here
+        #trustPolicyTarget=$TARGET
+        trustPolicyTarget="${TARGET}.xml"
+        dest_dir=/var/lib/nova/instances/
+        glance image-download $MANIFEST_UUID > $trustPolicyTarget
+        download_status=$(echo $?)
+        #cat $trustPolicyTarget >> /var/log/mhagent.log
+        if [ $download_status -eq 0 ]; then
+            cp $trustPolicyTarget $INSTANCE_DIR/"manifest.xml"
+        fi
+   
+        mh_log "*****TrustPolicy Location: $trustPolicyTarget"
 
-      #download the trust policy from the glance and store it in the location=Target
-      #verify the Trust Policy Signature snippet here
-      #trustPolicyTarget=$TARGET
-      trustPolicyTarget="${TARGET}.xml"
-      dest_dir=/var/lib/nova/instances/
-      
-      glance image-download $MANIFEST_UUID > $trustPolicyTarget
-      download_status=$(echo $?)
-      #cat $trustPolicyTarget >> /var/log/mhagent.log
-      if [ $download_status -eq 0 ]; then
-           cp $trustPolicyTarget $INSTANCE_DIR/"manifest.xml"
-      fi
-      
-     mh_log "*****TrustPolicy Location: $trustPolicyTarget"
-      
-     if [ -n "$trustPolicyTarget" ]; then
-        #Call the Verifier Java snippet
-        mh_log "Java Func call print here: /usr/bin/java -classpath  $verifierJavaLoc $javaClassName $trustPolicyTarget"
-        /usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trustPolicyTarget"
-        verifier_exit_status=$(echo $?)
-        mh_log "signature verfier ExitCode: $verifier_exit_status"
-       if [ $verifier_exit_status -eq 0 ]; then
-              mh_log " Signature verification was successful"
-              mh_log "policy agent will proceed to decrypt the image"
-       else
-             mh_log "Signature verification was unsuccessful. The launch process wil be aborted"
-             exit 1
-       fi
-     
+        if [ -n "$trustPolicyTarget" ]; then
+            #Call the Verifier Java snippet
+            mh_log "Java Func call print here: /usr/bin/java -classpath  $verifierJavaLoc $javaClassName $trustPolicyTarget"
+            /usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trustPolicyTarget"
+            verifier_exit_status=$(echo $?)
+            mh_log "signature verfier ExitCode: $verifier_exit_status"
+            if [ $verifier_exit_status -eq 0 ]; then
+               mh_log " Signature verification was successful"
+               mh_log "policy agent will proceed to decrypt the image"
+           else
+               mh_log "Signature verification was unsuccessful. The launch process wil be aborted"            exit 1
+           fi
+        fi
 
-     #if the verification was successful, perform the xml parsing here
-     cat $trustPolicyTarget | xmlstarlet fo --noindent | sed -e 's/ xmlns.*=".*"//g' | xmlstarlet sel -t -c "/TrustPolicy/Whitelist" | xmlstarlet ed -u '/Whitelist/*' -v ''| xmlstarlet ed -r "/Whitelist/@DigestAlg" -v 'xmlns="mtwilson:trustdirector:measurements:1.1" DigestAlg' > $INSTANCE_DIR/manifestlist.xml
-     manifest_res=$(echo $?)
-      cat $INSTANCE_DIR/manifest.xml >> $logfile
-     mh_log "****manifest-copy $manifest_res**"
-     cat $INSTANCE_DIR/manifestlist.xml >> $logfile
-     mh_log "Copied manifestlist.xml"
-     ls -l $INSTANCE_DIR/ >> $logfile
-     
-    fi
-
-      #md5sum /var/lib/nova/instances/_base/$BASE_IMAGE >> $logfile
-      # We rely on mh_decrypt to detect if the file is encrypted or not
-      # (it could already be decrypted if this isn't the first launch)
-      #mh_decrypt /var/lib/nova/instances/_base/$BASE_IMAGE >> $logfile
-      mh_decrypt $TARGET >> $logfile
-      # Either way we check that now the image checksum should match
-      # what was passed in via --checksum
-      #local current_md5=$(md5 /var/lib/nova/instances/_base/$BASE_IMAGE)
-      local current_md5=$(md5 $TARGET)
-      mh_log "Checksum after decryption: $current_md5"
-      if [ "$current_md5" != "$CHECKSUM" ]; then
-        mh_log "Error: checksum is $current_md5 but expected $CHECKSUM"
-      fi
-    else
-      #mh_log "File not found:  /var/lib/nova/instances/_base/$BASE_IMAGE"
-      mh_log "File not found: $TARGET"
-    fi
-  else
-    mh_log "Missing parameter --target"
-  fi
-  #if [ -d /var/lib/nova/instances/$INSTANCE_NAME ]; then
-  #  INSTANCE_DIR=/var/lib/nova/instances/$INSTANCE_NAME 
-  #  mh_log "Instance Path: $INSTANCE_DIR"
-  #fi
-  #if [ -f /var/lib/nova/instances/_base/$PROJECT_ID ]; then
-  #  PROJECT_FILE=/var/lib/nova/instances/_base/$PROJECT_ID
-  #  mh_log "Base Image:  $PROJECT_FILE"
-  #fi
-  #if [ -n "$PROJECT_FILE" ]; then
-  #  if [ -f "$PROJECT_FILE" ]; then
-  #    mh_log "mh_launch: Decrypting $PROJECT_FILE"
-  #    mh_decrypt $PROJECT_FILE >> $logfile
-  #  else
-  #    mh_log "mh_launch: Cannot decrypt file: file not found"
-  #  fi
-  #else
-  #  mh_log "mh_launch: Cannot decrypt file: no base image"
-  #fi
+        #if the verification was successful, perform the xml parsing here
+        cat $trustPolicyTarget | xmlstarlet fo --noindent | sed -e 's/ xmlns.*=".*"//g' | xmlstarlet sel -t -c "/TrustPolicy/Whitelist" | xmlstarlet ed -u '/Whitelist/*' -v '' > $INSTANCE_DIR/manifestlist.xml
+        cat $trustPolicyTarget >> $logfile
+        cat $INSTANCE_DIR/manifestlist.xml >> $logfile
+        ls -l $INSTANCE_DIR >> $logfile
+        #md5sum /var/lib/nova/instances/_base/$BASE_IMAGE >> $logfile
+        # We rely on mh_decrypt to detect if the file is encrypted or not
+        # (it could already be decrypted if this isn't the first launch)
+        #mh_decrypt /var/lib/nova/instances/_base/$BASE_IMAGE >> $logfile
+        if [ ! -z "$CHECKSUM" ]; then
+            mh_log "Dcrypt condition"
+            mh_decrypt $TARGET >> $logfile
+            # Either way we check that now the image checksum should match
+            # what was passed in via --checksum
+            #local current_md5=$(md5 /var/lib/nova/instances/_base/$BASE_IMAGE)
+            local current_md5=$(md5 $TARGET)
+            mh_log "Checksum after decryption: $current_md5"
+            if [ "$current_md5" != "$CHECKSUM" ]; then
+                mh_log "Error: checksum is $current_md5 but expected $CHECKSUM"
+            fi
+         else
+               mh_log "Image is not encrypted"
+         fi
+        else
+            #mh_log "File not found:  /var/lib/nova/instances/_base/$BASE_IMAGE"
+            mh_log "File not found: $TARGET"
+        fi
+        else
+            mh_log "Missing parameter --target"
+        fi
+        #if [ -d /var/lib/nova/instances/$INSTANCE_NAME ]; then
+        #  INSTANCE_DIR=/var/lib/nova/instances/$INSTANCE_NAME 
+        #  mh_log "Instance Path: $INSTANCE_DIR"
+        #fi
+        #if [ -f /var/lib/nova/instances/_base/$PROJECT_ID ]; then
+        #  PROJECT_FILE=/var/lib/nova/instances/_base/$PROJECT_ID
+        #  mh_log "Base Image:  $PROJECT_FILE"
+        #fi
+        #if [ -n "$PROJECT_FILE" ]; then
+        #  if [ -f "$PROJECT_FILE" ]; then
+        #    mh_log "mh_launch: Decrypting $PROJECT_FILE"
+        #    mh_decrypt $PROJECT_FILE >> $logfile
+        #  else
+        #    mh_log "mh_launch: Cannot decrypt file: file not found"
+        #  fi
+        #else
+        #  mh_log "mh_launch: Cannot decrypt file: no base image"
+        #fi
 }
 
 mh_terminate() {
@@ -352,7 +354,7 @@ mh_request_dek() {
     dekdir=/tmp
   else
     mh_fix_aik
-    aikdir=/opt/trustagent/configuration/
+    aikdir=/opt/trustagent/configuration
     dekdir=/var/lib/nova
   fi
   if [ ! -f $aikdir/aik.pem ]; then
@@ -367,8 +369,7 @@ mh_request_dek() {
   mh_log "Requesting DEK from: $url"
 
   curl --insecure --silent -X POST -H "Content-Type: text/plain" --data-binary @$aikdir/aik.pem "$url" > $dekdir/mh.dek.base64
-
- #Uncomment the following line for new KMS integration and comment the above line
+  #Uncomment the following line for new KMS integration and comment the above line
   #Uncomment the below line to integrate the KMS proxy
   #curl --proxy http://$KMSPROXY_IPADDRESS:9080 --verbose -X POST -H "Content-Type: application/x-pem-file" -H "Accept: application/octet-stream" --data-binary @$aikdir/aik.pem  "$url" > $INSTANCE_DIR/$IMAGE_ID".key"
 
@@ -392,11 +393,8 @@ mh_request_dek() {
   mh_log "MH_DEK_BASE64: $MH_DEK_BASE64"
 }
 
-
 mh_log "$@"
 parse_args $@
-
-
 
 case "$1" in
   version)
