@@ -246,7 +246,7 @@ pa_launch() {
      fi
 
      #if the verification was successful, perform the xml parsing here
-     cat $trustPolicyTarget | xmlstarlet fo --noindent | sed -e 's/ xmlns.*=".*"//g' | xmlstarlet sel -t -c "/TrustPolicy/Whitelist" | xmlstarlet ed -u '/Whitelist/*' -v '' | xmlstarlet ed -r "/Whitelist/@DigestAlg" -v 'xmlns="mtwilson:trustdirector:measurements:1.1" DigestAlg'> $INSTANCE_DIR/manifestlist.xml
+     cat $trustPolicyTarget | xmlstarlet fo --noindent | sed -e 's/ xmlns.*=".*"//g' | xmlstarlet sel -t -c "/TrustPolicy/Whitelist" | xmlstarlet ed -u '/Whitelist/*' -v '' | xmlstarlet ed -r "Whitelist" -v "Manifest" |xmlstarlet ed -r "/Manifest/@DigestAlg" -v 'xmlns="mtwilson:trustdirector:manifest:1.1" DigestAlg'> $INSTANCE_DIR/manifestlist.xml
      cat $trustPolicyTarget >> $logfile
      cat $INSTANCE_DIR/manifestlist.xml >> $logfile
      ls -l $INSTANCE_DIR >> $logfile
