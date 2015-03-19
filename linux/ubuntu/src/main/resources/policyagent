@@ -3,18 +3,16 @@ logfile=/var/log/policyagent.log
 configfile=/opt/policyagent/configuration/policyagent.env
 
 KMSPROXY_IPADDRESS=$(grep "KMS_PROXY_IP" $configfile | cut -d "=" -f2)
+INSTANCE_DIR="/var/lib/nova/instances/"
 
-#verifierJavaLoc=/root/preeti-PA/dcg_security-policyagent/linux/ubuntu/src/main/resources/
 verifierJavaLoc=/usr/local/bin/
 javaClassName=Validate
-
 export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
 export PATH=$PATH:/usr/lib/jvm/java-7-openjdk-amd64/jre/bin
 export CLASSPATH=/usr/lib/jvm/java-7-openjdk-amd64/lib/
 
 source /opt/policyagent/configuration/admin-openrc.sh
 
-# init
 if [ ! -f $logfile ]; then touch $logfile; fi
 
 # this command accepts two parameters:  filename, extension
@@ -140,7 +138,8 @@ pa_decrypt() {
   pa_request_dek $DEK_URL
   # XXX TODO (see note in pa_encrypt) need to change ciphers to aes-256-cbc and also add hmac for authentication!
   #openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass pass:password
-  #Uncomment the following line with new KMS integration
+ 
+ #Uncomment the following line with new KMS integration
     #KEY_ID=$INSTANCE_DIR/$IMAGE_ID".key"
     #tpm_unbindaeskey -k $PRIVATE_KEY -i $KEY_ID  -o $KEY_ID.dek
     #openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass env:$KEY_ID.dek
@@ -163,15 +162,10 @@ pa_decrypt() {
   fi
   echo "error: failed to decrypt $infile"
   return 2
-  #local infiledir=`dirname $infile`
-  #local infilebasename=`basename $infile .enc`
-  #local outfile="$infiledir/$infilebasename"
-  #mv $decfile $outfile
 }
 
 parse_args() {
-  #if ! options=$(getopt -n policyagent -l project-id:,instance-name:,base-image:,image-id:,target:,checksum:,dek-url: -- "$@"); then exit 1; fi
-  if ! options=$(getopt -n policyagent -l project-id:,instance-name:,base-image:,image-id:,target:,checksum:,dek-url:,manifest_uuid:,instance_dir: -- "$@"); then exit 1; fi
+  if ! options=$(getopt -n policyagent -l project-id:,instance-name:,base-image:,image-id:,target:,checksum:,dek-url:,manifest_uuid:,instance_id:,mtwilson_trust_policy: -- "$@"); then exit 1; fi
   eval set -- "$options"
   while [ $# -gt 0 ]
   do
@@ -184,7 +178,8 @@ parse_args() {
       --checksum) CHECKSUM="$2"; shift;;
       --dek-url) DEK_URL="$2"; shift;;
       --manifest_uuid) MANIFEST_UUID="$2";shift;;
-      --instance_dir) INSTANCE_DIR="$2";shift;;
+      --instance_id) INSTANCE_ID="$2";shift;;
+      --mtwilson_trust_policy) MTW_TRUST_POLICY="$2";shift;;
     esac
     shift
   done
@@ -200,53 +195,65 @@ pa_launch() {
   pa_log "Checksum: $CHECKSUM"
   pa_log "DEK URL: $DEK_URL"
   pa_log "MANIFEST UUID: $MANIFEST_UUID"
+  pa_log "INSTANCE ID: $INSTANCE_ID"
+  INSTANCE_DIR=$INSTANCE_DIR/$INSTANCE_ID
   pa_log "INSTANCE_DIR: $INSTANCE_DIR"
+  pa_log "MTW_TRUST_POLICY: $MTW_TRUST_POLICY"
 
   #if [ -n "$BASE_IMAGE" ]; then
   if [ -n "$TARGET" ]; then
-    #waitcounter=0
-    #while [ ! -f /var/lib/nova/instances/_base/$BASE_IMAGE ] && [ $waitcounter -lt 10 ]; do
-    #  pa_log "File not found:  /var/lib/nova/instances/_base/$BASE_IMAGE"
-    #  waitcounter=$((waitcounter+1))
-    #  pa_log "Waiting to find it again; waitcounter=$waitcounter max 10"
-    #  sleep 1
-    #done
-    #if [ -f /var/lib/nova/instances/_base/$BASE_IMAGE ]; then
-    if [ -f $TARGET ]; then
-      pa_log "Found base image: $TARGET"
-      pa_log "***BASE IMAGE FOUND"
-    
-     #download the trust policy from the glance and store it in the location=Target
-      #verify the Trust Policy Signature snippet here
-      #trustPolicyTarget=$TARGET
-      trustPolicyTarget="${TARGET}.xml"
-      dest_dir=/var/lib/nova/instances/
-
-      glance image-download $MANIFEST_UUID > $trustPolicyTarget
-      download_status=$(echo $?)
-      #cat $trustPolicyTarget >> /var/log/policyagent.log
-      if [ $download_status -eq 0 ]; then
+     if [ -f $TARGET ]; then
+         pa_log "Found base image: $TARGET"
+         pa_log "***BASE IMAGE FOUND"
+         #Untar the image and Trust policy
+         temp_dir=$TARGET"_temp"
+         trustPolicyTarget="${TARGET}.xml"
+         #if [ ! -d "$policyagent_dir"/"$INSTANCE_ID" ]; then
+              pa_log "Created instance dir"
+           mkdir $temp_dir
+        #fi
+ 
+        ls -ltar $TARGET >> $logfile
+        tar -xvf $TARGET -C $temp_dir
+        ls -l $temp_dir >> $logfile
+        mv $temp_dir/*.xml $trustPolicyTarget
+        #if [ -f $temp_dir/"*.img.*" ]; then
+           cp $temp_dir/"cirros"* $TARGET
+        ls -ltar $TARGET >> $logfile
+        echo $?
+        pa_log "Untar the tar"
+        #Untar
+        
+        #Start TP Check the Encryption Tag, extract DEK and Checksum
+        if [ -n "$trustPolicyTarget" ]; then
+           is_encrypted=`grep -r "<Encryption" $trustPolicyTarget`
+           if [ ! -z "$is_encrypted" ]; then
+               pa_log "Received an encrypted image"
+               CHECKSUM=`cat $trustPolicyTarget | xmlstarlet fo --noindent | sed -e 's/ xmlns.*=".*"//g' | xmlstarlet sel -t -v "/TrustPolicy/Encryption/Checksum"`
+               DEK_URL=`cat $trustPolicyTarget | xmlstarlet fo --noindent | sed -e 's/ xmlns.*=".*"//g' | xmlstarlet sel -t -v "/TrustPolicy/Encryption/Key"`
+               pa_log "Checksum: $CHECKSUM"
+               pa_log "DEK URL: $DEK_URL"
+           else
+               pa_log " The image is not encrypted: no checksum and dek_url received"
+           fi
+           #End TP
            cp $trustPolicyTarget $INSTANCE_DIR/"manifest.xml"
+           pa_log "*****TrustPolicy Location: $trustPolicyTarget"
+           #Call the Verifier Java snippet
+           pa_log "Java Func call print here: /usr/bin/java -classpath  $verifierJavaLoc $javaClassName $trustPolicyTarget"
+           /usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trustPolicyTarget"
+           verifier_exit_status=$(echo $?)
+           pa_log "signature verfier ExitCode: $verifier_exit_status"
+           if [ $verifier_exit_status -eq 0 ]; then
+               pa_log " Signature verification was successful"
+               pa_log "policy agent will proceed to decrypt the image"
+           else
+               pa_log "Signature verification was unsuccessful. The launch process wil be aborted"            exit 1
+           fi
       fi
-
-     pa_log "*****TrustPolicy Location: $trustPolicyTarget"
-
-     if [ -n "$trustPolicyTarget" ]; then
-        Call the Verifier Java snippet
-        pa_log "Java Func call print here: /usr/bin/java -classpath  $verifierJavaLoc $javaClassName $trustPolicyTarget"
-        /usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trustPolicyTarget"
-        verifier_exit_status=$(echo $?)
-        pa_log "signature verfier ExitCode: $verifier_exit_status"
-        if [ $verifier_exit_status -eq 0 ]; then
-              pa_log " Signature verification was successful"
-              pa_log "policy agent will proceed to decrypt the image"
-       else
-             pa_log "Signature verification was unsuccessful. The launch process wil be aborted"            exit 1
-       fi
-     fi
-
+ 
      #if the verification was successful, perform the xml parsing here
-     cat $trustPolicyTarget | xmlstarlet fo --noindent | sed -e 's/ xmlns.*=".*"//g' | xmlstarlet sel -t -c "/TrustPolicy/Whitelist" | xmlstarlet ed -u '/Whitelist/*' -v '' | xmlstarlet ed -r "/Whitelist/@DigestAlg" -v 'xmlns="mtwilson:trustdirector:measurements:1.1" DigestAlg'> $INSTANCE_DIR/manifestlist.xml
+     cat $trustPolicyTarget | xmlstarlet fo --noindent | sed -e 's/ xmlns.*=".*"//g' | xmlstarlet sel -t -c "/TrustPolicy/Whitelist" | xmlstarlet ed -u '/Whitelist/*' -v '' | xmlstarlet ed -r "Whitelist" -v "Manifest" |xmlstarlet ed -r "/Manifest/@DigestAlg" -v 'xmlns="mtwilson:trustdirector:manifest:1.1" DigestAlg'> $INSTANCE_DIR/manifestlist.xml
      cat $trustPolicyTarget >> $logfile
      cat $INSTANCE_DIR/manifestlist.xml >> $logfile
      ls -l $INSTANCE_DIR >> $logfile
