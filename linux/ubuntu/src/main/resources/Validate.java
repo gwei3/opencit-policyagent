@@ -48,11 +48,9 @@ public class Validate {
         dbf.setNamespaceAware(true);
         Document doc
                 = dbf.newDocumentBuilder().parse(new FileInputStream(new File(TrustPolicyLocation)));
-//        System.out.println("Debug Stat 2");
         // Find Signature element
         NodeList nl
                 = doc.getElementsByTagNameNS(XMLSignature.XMLNS, "Signature");
-//         System.out.println("Debug Stat 3");
         if (nl.getLength() == 0) {
             throw new Exception("Cannot find Signature element");
         }
@@ -60,7 +58,6 @@ public class Validate {
         // Create a DOM XMLSignatureFactory that will be used to unmarshal the
         // document containing the XMLSignature
         XMLSignatureFactory fac = XMLSignatureFactory.getInstance("DOM");
-//         System.out.println("Debug Stat 4");
         // Create a DOMValidateContext and specify a KeyValue KeySelector
         // and document context
         DOMValidateContext valContext = new DOMValidateContext(new KeyValueKeySelector(), nl.item(0));
@@ -71,9 +68,6 @@ public class Validate {
         // Validate the XMLSignature (generated above)
         boolean coreValidity = signature.validate(valContext);
  
-       //This is only for test purpose added coreValidity=false;
-       // coreValidity=false;
-
         // Check core validation status
         if (coreValidity == false) {
             System.err.println("Signature failed core validation");
@@ -141,6 +135,10 @@ public class Validate {
         }
     }
 
+	/**
+	 * If certificate is available in trusted keystore than certificate is said to be 
+	 * a trusted certificate	
+	*/
     private static boolean isTrustedCertificate(X509Certificate cert) {
         FileInputStream fIn = null;
         boolean trusted = false;
@@ -205,6 +203,9 @@ public class Validate {
         return trusted;
     }
 
+	/**
+	 *  Verifies if given two algorithms are same
+	*/
     static boolean algEquals(String algURI, String algName) {
         if ((algName.equalsIgnoreCase("DSA")
                 && algURI.equalsIgnoreCase(SignatureMethod.DSA_SHA1))
