@@ -1,15 +1,20 @@
 #!/bin/bash
 logfile=/var/log/policyagent.log
 configfile=/opt/policyagent/configuration/policyagent.env
+INSTANCE_DIR=/var/lib/nova/instances/
+verifierJavaLoc=/usr/local/bin/
+javaClassName=Validate
 
 export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
 export PATH=$PATH:/usr/lib/jvm/java-7-openjdk-amd64/jre/bin
 export CLASSPATH=/usr/lib/jvm/java-7-openjdk-amd64/lib/
 
-kms_proxy_ipaddress=$(grep "KMS_PROXY_IP" $configfile | cut -d "=" -f2)
-INSTANCE_DIR="/var/lib/nova/instances/"
-verifierJavaLoc=/usr/local/bin/
-javaClassName=Validate
+if [ ! -f $configfile ]; then
+    kms_proxy_ipaddress=$(grep "KMS_PROXY_IP" $configfile | cut -d "=" -f2)
+else 
+    pa_log "Missing configuration file. Unable to retrieve kms proxy ip address"
+    exit 1
+fi 
 
 
 if [ ! -f $logfile ]; then 
@@ -209,24 +214,29 @@ pa_launch() {
            mkdir $temp_dir
         #fi
  
+        
         ls -ltar $TARGET >> $logfile
-        tar -xvf $TARGET -C $temp_dir
-        ls -l $temp_dir >> $logfile
-        mv $temp_dir/*.xml $trustPolicyTarget
-        pa_log "*******************************************"
-        image_path=`find $temp_dir -name '*.[img|vhd|raw]*'`
-        pa_log "Image Path is $image_path"
-        pa_log "*******************************************"
-        if [ -n $image_path ]; then
-           cp $image_path $TARGET
-        else
-            pa_log "Failed to untar and copy the image successfully"
-            exit 1
-        fi
-        #ls -ltar $TARGET >> $logfile
-        echo $?
-        pa_log "Untar the tar"
-        #Untar
+        if [ "$MTW_TRUST_POLICY" == "glance_image_tar" ]; then
+            pa_log " Image is been downloaded from the glance"
+            tar -xvf $TARGET -C $temp_dir
+            ls -l $temp_dir >> $logfile
+            mv $temp_dir/*.xml $trustPolicyTarget
+            pa_log "*******************************************"
+            image_path=`find $temp_dir -name '*.[img|vhd|raw]*'`
+            pa_log "Image Path is $image_path"
+            pa_log "*******************************************"
+            if [ -n $image_path ]; then
+               cp $image_path $TARGET
+            else  
+                pa_log "Failed to untar and copy the image successfully"
+                exit 1
+                fi
+                #ls -ltar $TARGET >> $logfile
+                #Untar
+       else
+            # There will be other sources like swift to add later
+            pa_log "Image is not downloaded from the glance"
+       fi
         
         #Start TP Check the Encryption Tag, extract DEK and Checksum
         if [ -n "$trustPolicyTarget" ]; then
@@ -252,7 +262,8 @@ pa_launch() {
                pa_log " Signature verification was successful"
                pa_log "policy agent will proceed to decrypt the image"
            else
-               pa_log "Signature verification was unsuccessful. The launch process wil be aborted"            exit 1
+               pa_log "Signature verification was unsuccessful. The launch process wil be aborted"
+               exit 1
            fi
       fi
  
@@ -275,15 +286,18 @@ pa_launch() {
       pa_log "Checksum after decryption: $current_md5"
       if [ "$current_md5" != "$CHECKSUM" ]; then
           pa_log "Error: checksum is $current_md5 but expected $CHECKSUM"
+          exit 1
       fi
       else
          pa_log "The image is not encrypted"
     fi
     else
         pa_log "File not found: $TARGET"
+        exit 1
     fi
    else
        pa_log "Missing parameter --target"
+       exit 1
   fi
   #if [ -d /var/lib/nova/instances/$INSTANCE_NAME ]; then
   #  INSTANCE_DIR=/var/lib/nova/instances/$INSTANCE_NAME 
@@ -377,30 +391,33 @@ pa_request_dek() {
   #curl --verbose --insecure -X POST -H "Content-Type: application/octet-stream" --data-binary @$aikdir/aikcert.crt "$url"
 
   pa_log "Requesting DEK from: $url"
-
   curl --insecure --silent -X POST -H "Content-Type: text/plain" --data-binary @$aikdir/aik.pem "$url" > $dekdir/mh.dek.base64
+  
   #Uncomment the following line for new KMS integration and comment the above line
   #Uncomment the below line to integrate the KMS proxy
   #curl --proxy http://$kms_proxy_ipaddress:9080 --verbose -X POST -H "Content-Type: application/x-pem-file" -H "Accept: application/octet-stream" --data-binary @$aikdir/aik.pem  "$url" > $INSTANCE_DIR/$IMAGE_ID".key"
 
   #export MH_DEK_RAW=`cat $dekdir/mh.dek`
-  export MH_DEK_BASE64=`cat $dekdir/mh.dek.base64`
+  if [ ! -z "$dekdir/mh.dek.base64" ]; then
+      export MH_DEK_BASE64=`cat $dekdir/mh.dek.base64`
+    
+      # if client uses the raw key as input to openssl:
+      #base64 -d < $dekdir/mh.dek.base64 > $dekdir/mh.dek
+      #export MH_DEK=`cat $dekdir/mh.dek`
+      # if client uses the base64 encoded key as input to openssl:
+      export MH_DEK="$MH_DEK_BASE64"
+      pa_log "Received DEK from: $url"
+      #pa_log "Received DEK: $MH_DEK"
+      # XXX TODO need to have an output file option where caller can specify to save the DEK, and an environment option to place it in an env var and then we would also delete these temp files
+      #rm $dekdir/mh.dek
+      #rm $dekdir/mh.dek.base64
+      # XXX DEBUG INSECURE for debugging only:  remove this to protect the key
+      pa_log "MH_DEK_BASE64: $MH_DEK_BASE64"
+  else
+      pa_log " Failed to retrieve the decryption key from the key server"
+      exit 1
+  fi
 
-  # if client uses the raw key as input to openssl:
-  #base64 -d < $dekdir/mh.dek.base64 > $dekdir/mh.dek
-  #export MH_DEK=`cat $dekdir/mh.dek`
-  
-  # if client uses the base64 encoded key as input to openssl:
-  export MH_DEK="$MH_DEK_BASE64"
-
-  pa_log "Received DEK from: $url"
-  #pa_log "Received DEK: $MH_DEK"
-  # XXX TODO need to have an output file option where caller can specify to save the DEK, and an environment option to place it in an env var and then we would also delete these temp files
-  #rm $dekdir/mh.dek
-  #rm $dekdir/mh.dek.base64
-
-  # XXX DEBUG INSECURE for debugging only:  remove this to protect the key
-  pa_log "MH_DEK_BASE64: $MH_DEK_BASE64"
 }
 
 pa_log "$@"
