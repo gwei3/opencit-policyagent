@@ -65,7 +65,7 @@ pa_getlog() {
 
 openssl_encrypted_file() {
   local filename="$1"
-  encheader=`hd -n 8 $filename | head -n 1 | grep "Salted__"`
+  encheader=`hexdump -C -n 8 $filename | head -n 1 | grep "Salted__"`
   if [ -n "$encheader" ]; then
       return 0
   fi
