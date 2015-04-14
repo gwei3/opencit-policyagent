@@ -216,6 +216,7 @@ parse_trust_policy(){
             fi
 	fi 
 }
+
 parse_args() {
   if ! options=$(getopt -n policyagent -l project-id:,instance-name:,base-image:,image-id:,target:,instance_id:,mtwilson_trust_policy: -- "$@"); then exit 1; fi
   eval set -- "$options"
@@ -237,9 +238,10 @@ parse_args() {
 generate_manifestlist(){
     #if the verification was successful, perform the xml parsing here
      cat $trust_policy_loc | xmlstarlet fo --noindent | sed -e 's/ xmlns.*=".*"//g' | xmlstarlet sel -t -c "/TrustPolicy/Whitelist" | xmlstarlet ed -u '/Whitelist/*' -v '' | xmlstarlet ed -r "Whitelist" -v "Manifest" |xmlstarlet ed -r "/Manifest/@DigestAlg" -v 'xmlns="mtwilson:trustdirector:manifest:1.1" DigestAlg'> $INSTANCE_DIR/manifestlist.xml
-     cat $INSTANCE_DIR/trustpolicy.xml >> $logfile
-     cat $INSTANCE_DIR/manifestlist.xml >> $logfile
-     ls -l $INSTANCE_DIR >> $logfile   
+     
+	 #cat $INSTANCE_DIR/trustpolicy.xml >> $logfile
+     #cat $INSTANCE_DIR/manifestlist.xml >> $logfile
+     #ls -l $INSTANCE_DIR >> $logfile   
 }
 
 pa_launch() {
@@ -265,14 +267,18 @@ pa_launch() {
 		   untar_file $TARGET
 	 
            #start TP Check the Encryption Tag, extract DEK and Checksum
-           verify_trust_policy_signature
+            if [ -n "$trust_policy_loc" ]; then
+               verify_trust_policy_signature
+    
+               #parse the trust policy to generate the manifest list
+               generate_manifestlist
+     
+              #parse trust policy to check if image is encrypted
+               parse_trust_policy
+           else
+               pa_log "Trust policy was not found, proceeding with the image launch"
+           fi
            
-		   #parse the trust policy to generate the manifest list
-           generate_manifestlist
-
-           #parse trust policy to check if image is encrypted
-		   parse_trust_policy
-		   
            if [ ! -z $CHECKSUM ] && [ ! -z $DEK_URL ]; then
               pa_decrypt $TARGET >> $logfile
               local current_md5=$(md5 $TARGET)
@@ -280,8 +286,8 @@ pa_launch() {
               if [ "$current_md5" != "$CHECKSUM" ]; then
                  pa_log "Error: checksum is $current_md5 but expected $CHECKSUM"
                  exit 1
-			  else
-			      pa_log "image decryption completed"
+	      else
+	          pa_log "image decryption completed"
               fi
            else
                pa_log "The image is not encrypted"
@@ -374,18 +380,18 @@ pa_request_dek() {
  
   if [  -f $configfile ]; then
       kms_proxy_ipaddress=$(grep "KMS_PROXY_IP" $configfile | cut -d "=" -f2)
-      pa_log "$kms_proxy_ipaddress"
       kms_proxy_port=$(grep "JETTY_PORT" $configfile | cut -d "=" -f2)
-      pa_log "$kms_proxy_port"
+      pa_log "kms proxy ip address: $kms_proxy_ipaddress"
+	  pa_log "kms jetty port: $kms_proxy_port"
    
       if [ ! -z "$kms_proxy_ipaddress" ] && [ ! -z "$kms_proxy_port" ]; then
          curl --proxy http://$kms_proxy_ipaddress:$kms_proxy_port --verbose -X POST -H "Content-Type: application/x-pem-file" -H "Accept: application/octet-stream" --data-binary @$aikdir/aik.pem  "$url" > "${key_id}.key"
      else
-          pa_log "Failed to make a request to KMS proxy. Could not find the PROXY URL"
+          pa_log "failed to make a request to kms proxy. Could not find the proxy url"
           exit 1
       fi
   else 
-      pa_log "Missing configuration file. Unable to retrieve kms proxy ip address"
+      pa_log "missing configuration file, unable to retrieve the kms proxy ip address"
       exit 1
   fi 
   
@@ -394,7 +400,7 @@ pa_request_dek() {
  if [ -n "${key_id}.key" ]; then
      pa_log "received key from the key server"
   else
-     pa_log "Failed to get the Key ID from the Key server"
+     pa_log "failed to get the Key ID from the Key server"
      exit 1
  fi
 
