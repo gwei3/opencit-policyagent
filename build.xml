@@ -32,13 +32,6 @@
 		</fail>
 		<!-- the maven archetypes depend on root pom -->
 		<!-- the root pom -->
-		<exec executable="${cmd.maven}" dir="policyagent-maven-java" resultproperty="mavenExitInstallJavaPom">
-			<arg value="-N"/>
-			<arg value="install"/>
-		</exec>
-		<fail message="Cannot install policyagent-maven-java" status="${mavenExitInstallJavaPom}">
-			<condition><not><equals arg1="${mavenExitInstallJavaPom}" arg2="0"/></not></condition>
-		</fail>
 	</target>
 	
 	<target name="clean" depends="init">

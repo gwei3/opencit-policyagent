@@ -30,7 +30,6 @@
         </plugins>
     </build>
     <modules>
-        <module>policyagent-maven-java</module>
         <module>policyagent-maven-root</module>
     </modules>
 </project>
