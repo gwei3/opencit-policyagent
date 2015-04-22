@@ -31,8 +31,6 @@
     </build>
     <modules>
         <module>policyagent-maven-java</module>
-        <module>policyagent-maven-package-makeself</module>
-        <module>policyagent-maven-package-zip</module>
         <module>policyagent-maven-root</module>
     </modules>
 </project>
