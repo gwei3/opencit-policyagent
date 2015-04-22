@@ -39,18 +39,6 @@
 		<fail message="Cannot install policyagent-maven-java" status="${mavenExitInstallJavaPom}">
 			<condition><not><equals arg1="${mavenExitInstallJavaPom}" arg2="0"/></not></condition>
 		</fail>
-		<exec executable="${cmd.maven}" dir="policyagent-maven-package-zip" resultproperty="mavenExitInstallPackageZipPom">
-			<arg value="install"/>
-		</exec>
-		<fail message="Cannot install policyagent-maven-package-zip" status="${mavenExitInstallPackageZipPom}">
-			<condition><not><equals arg1="${mavenExitInstallPackageZipPom}" arg2="0"/></not></condition>
-		</fail>
-		<exec executable="${cmd.maven}" dir="policyagent-maven-package-makeself" resultproperty="mavenExitInstallPackageMakeselfPom">
-			<arg value="install"/>
-		</exec>
-		<fail message="Cannot install policyagent-maven-package-makeself" status="${mavenExitInstallPackageMakeselfPom}">
-			<condition><not><equals arg1="${mavenExitInstallPackageMakeselfPom}" arg2="0"/></not></condition>
-		</fail>
 	</target>
 	
 	<target name="clean" depends="init">
