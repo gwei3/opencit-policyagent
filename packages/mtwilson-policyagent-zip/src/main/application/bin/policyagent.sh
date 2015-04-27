@@ -189,7 +189,8 @@ untar_file() {
 verify_trust_policy_signature(){
         if [ -n "$trust_policy_loc" ]; then   
            #Call the Verifier Java snippet
-           /usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trust_policy_loc"
+           tagent verify-trustpolicy-signature "$trust_policy_loc"
+           #/usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trust_policy_loc"
            verifier_exit_status=$(echo $?)
            pa_log "signature verfier exitCode: $verifier_exit_status"
            if [ $verifier_exit_status -eq 0 ]; then
@@ -379,8 +380,8 @@ pa_request_dek() {
   #Uncomment the below line to integrate the KMS proxy
  
   if [  -f $configfile ]; then
-      kms_proxy_ipaddress=$(grep "KMS_PROXY_IP" $configfile | cut -d "=" -f2)
-      kms_proxy_port=$(grep "JETTY_PORT" $configfile | cut -d "=" -f2)
+      kms_proxy_ipaddress=$(grep "KMSPROXY_SERVER" $configfile | cut -d "=" -f2)
+      kms_proxy_port=$(grep "KMSPROXY_SERVER_PORT" $configfile | cut -d "=" -f2)
       pa_log "kms proxy ip address: $kms_proxy_ipaddress"
 	  pa_log "kms jetty port: $kms_proxy_port"
    
