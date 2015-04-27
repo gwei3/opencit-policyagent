@@ -192,7 +192,7 @@ chmod 700 $POLICYAGENT_HOME/bin/*
 # link /usr/local/bin/policyagent -> /opt/policyagent/bin/policyagent
 EXISTING_POLICYAGENT_COMMAND=`which policyagent`
 if [ -n "$EXISTING_POLICYAGENT_COMMAND" ]; then
-  rm -f /usr/local/bin/policyagent
+  rm -f "$EXISTING_POLICYAGENT_COMMAND"
 fi
 ln -s $POLICYAGENT_HOME/bin/policyagent.sh /usr/local/bin/policyagent
 
