@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project name="policyagent" default="all" basedir=".">
+<project name="mtwilson-policyagent" default="all" basedir=".">
 	<description>
 	Run "ant ready" to ensure you have all pre-requisites to build
 	Run "ant" or "ant build" to build the entire project
@@ -23,11 +23,11 @@
 	
 	<target name="ready" depends="init">
 		<!-- the root pom -->
-		<exec executable="${cmd.maven}" dir="policyagent-maven-root" resultproperty="mavenExitInstallRootPom">
+		<exec executable="${cmd.maven}" dir="mtwilson-policyagent-maven-root" resultproperty="mavenExitInstallRootPom">
 			<arg value="-N"/>
 			<arg value="install"/>
 		</exec>
-		<fail message="Cannot install policyagent-maven-root" status="${mavenExitInstallRootPom}">
+		<fail message="Cannot install mtwilson-policyagent-maven-root" status="${mavenExitInstallRootPom}">
 			<condition><not><equals arg1="${mavenExitInstallRootPom}" arg2="0"/></not></condition>
 		</fail>
 		<!-- the maven archetypes depend on root pom -->

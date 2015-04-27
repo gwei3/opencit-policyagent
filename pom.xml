@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.intel.mtwilson.policyagent</groupId>
-    <artifactId>policyagent-maven-build</artifactId>
+    <artifactId>mtwilson-policyagent-maven-build</artifactId>
     <version>0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
@@ -11,6 +11,6 @@
     </description>
 	
     <modules>
-        <module>policyagent-maven-root</module>
+        <module>mtwilson-policyagent-maven-root</module>
     </modules>
 </project>
