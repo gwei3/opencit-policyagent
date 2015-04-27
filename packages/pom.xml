@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     
     <groupId>com.intel.mtwilson.policyagent.packages</groupId>
-    <artifactId>policyagent-maven-build-packages</artifactId>
+    <artifactId>mtwilson-policyagent-maven-build-packages</artifactId>
     <version>0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     

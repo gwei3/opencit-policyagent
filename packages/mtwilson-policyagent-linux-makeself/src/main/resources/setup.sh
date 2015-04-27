@@ -51,10 +51,6 @@ UTIL_SCRIPT_FILE=$(ls -1 mtwilson-linux-util-*.sh | head -n 1)
 if [ -n "$UTIL_SCRIPT_FILE" ] && [ -f "$UTIL_SCRIPT_FILE" ]; then
   . $UTIL_SCRIPT_FILE
 fi
-POLICYAGENT_UTIL_SCRIPT_FILE=$(ls -1 policyagent-functions.sh | head -n 1)
-if [ -n "$POLICYAGENT_UTIL_SCRIPT_FILE" ] && [ -f "$POLICYAGENT_UTIL_SCRIPT_FILE" ]; then
-  . $POLICYAGENT_UTIL_SCRIPT_FILE
-fi
 
 # load installer environment file, if present
 if [ -f ~/policyagent.env ]; then
