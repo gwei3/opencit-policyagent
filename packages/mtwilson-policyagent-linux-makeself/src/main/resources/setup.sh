@@ -98,6 +98,7 @@ policyagent_backup_repository() {
 }
 
 # backup current configuration and data, if they exist
+mkdir -p /var/backup
 policyagent_backup_configuration
 policyagent_backup_repository
 
@@ -164,9 +165,9 @@ load_policyagent_conf
 load_policyagent_defaults
 
 # required properties
-prompt_with_default KMS_PROXY_SERVER "KMS Proxy Server:" "$KMSPROXY_SERVER"
+prompt_with_default KMSPROXY_SERVER "KMS Proxy Server:" "$KMSPROXY_SERVER"
 update_property_in_file "kmsproxy.server" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER"
-prompt_with_default KMS_PROXY_SERVER_PORT "KMS Proxy Server Port:" "$KMSPROXY_SERVER_PORT"
+prompt_with_default KMSPROXY_SERVER_PORT "KMS Proxy Server Port:" "$KMSPROXY_SERVER_PORT"
 update_property_in_file "kmsproxy.server.port" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER_PORT"
 
 # make sure prerequisites are installed
@@ -190,9 +191,10 @@ chmod 700 $POLICYAGENT_HOME/bin/*
 
 # link /usr/local/bin/policyagent -> /opt/policyagent/bin/policyagent
 EXISTING_POLICYAGENT_COMMAND=`which policyagent`
-if [ -z "$EXISTING_POLICYAGENT_COMMAND" ]; then
-  ln -s $POLICYAGENT_HOME/bin/policyagent.sh /usr/local/bin/policyagent
+if [ -n "$EXISTING_POLICYAGENT_COMMAND" ]; then
+  rm -f /usr/local/bin/policyagent
 fi
+ln -s $POLICYAGENT_HOME/bin/policyagent.sh /usr/local/bin/policyagent
 
 # delete the temporary setup environment variables file
 rm -f $POLICYAGENT_ENV/policyagent-setup
