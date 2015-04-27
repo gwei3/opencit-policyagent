@@ -87,7 +87,7 @@ pa_encrypt() {
   openssl enc -aes-128-ofb -in "$infile" -out "$encfile" -pass pass:password
   if openssl_encrypted_file $encfile; then
      mv $encfile $infile
-     return 0
+     retur n0
   fi
   echo "error: failed to encrypt $infile"
   return 3
@@ -151,13 +151,24 @@ pa_decrypt() {
       loopdev_exit_status=`echo $?`
       pa_log "Loop_dev: $loop_dev"
       pa_log "The loopdev  status: $loopdev_exit_status"
-  
-      if [ ! -z $loop_dev ]; then
+      if [ - z $loop_dev ]; then
+          #TODO: Keep track of loopback device numbers being used
+           pa_log "Reqires additional loop device for use"
+           count_loop_dev=`ls -l /dev/loop* | wc -l`
+           if ["$count_loop_dev" > 8 ]; then
+               pa_log "Create a new loop device for use"
+               $count_loop_dev=$count_loop_dev-1
+               loop_dev=`mknod  -m 660 /dev/loop$count_loop_dev -b 7 count_loop_dev`
+           else
+               pa_log "Unable to create additional loop device"
+               exit 1
+           fi
+      elif [ ! -z "$loop_dev" ]; then
           pa_log "losetup $loop_dev $DISK_LOCATION/$IMAGE_ID"
           losetup $loop_dev $DISK_LOCATION/$IMAGE_ID
       else
-           #TODO: Keep track of loopback device numbers being used
-           mknod  -m 660 /dev/loop8 -b 7 8
+           pa_log "No loop device available"
+           exit 1
       fi
       
       losetup --find >> $logfile 2>> $logfile
@@ -166,9 +177,6 @@ pa_decrypt() {
       #tpm_unbindaeskey –k /opt/trustagent/configuration/bindingkey.blob –i $ENC_KEY_LOCATION/$image_ID.key -o "$ENC_KEY_LOCATION/${IMAGE_ID}.dek"  –q BINDING_KEY_PASSWORD –t -x | openssl enc -base64 cmd  | cryptsetup luksOpen –-key-file=-  $loop_dev $IMAGE_ID
 
     #Delete this later 
-      if [ ! -d "/tmp/keys" ]; then
-          mkdir /tmp/keys/
-      fi
       /opt/trustagent/bin/tpm_unbindaeskey -k $private_key -i "$ENC_KEY_LOCATION/${IMAGE_ID}.key"  -o "$ENC_KEY_LOCATION/${IMAGE_ID}.dek" -q BINDING_KEY_PASSWORD -t -x 2>> $logfile
      
       pa_log "loopback device: $loop_dev"
@@ -204,7 +212,7 @@ pa_decrypt() {
   if [ ! -d "$MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID" ]; then
       #pa_log "mkdir -p $MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID"
       #mkdir -p $MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID
-	# Abhay : removed the ImageID from end
+      # Abhay : removed the ImageID from end
       pa_log "mkdir -p $MOUNT_LOCATION/$IMAGE_ID/_base"
       mkdir -p $MOUNT_LOCATION/$IMAGE_ID/_base
   else
@@ -258,9 +266,15 @@ pa_decrypt() {
 
       #if [ ! -d "$MOUNT_LOCATION/$INSTANCE_ID" ]; then
       #    mkdir -p $MOUNT_LOCATION/$INSTANCE_ID
-      #    ln -s -f $MOUNT_LOCATION/$INSTANCE_ID $INSTANCE_DIR
+           mv $INSTANCE_DIR $MOUNT_LOCATION/$IMAGE_ID/$INASTANCE_ID/
+           check_status=`echo $?`
+           pa_log "Move INSTANCE_DIR status: $check_status"
+           if [ "$check_status" -eq 0 ]; then
+               ln -s -f $MOUNT_LOCATION/$IMAGE_ID/$INSTANCE_ID $INSTANCE_DIR
+           fi
       #fi 
       #VM-enc
+      rm -rf $ENC_KEY_LOCATION/${IMAGE_ID}.dek
  
       return 0
   else
