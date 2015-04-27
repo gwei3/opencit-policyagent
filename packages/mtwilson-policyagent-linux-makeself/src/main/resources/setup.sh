@@ -199,4 +199,4 @@ ln -s $POLICYAGENT_HOME/bin/policyagent.sh /usr/local/bin/policyagent
 # delete the temporary setup environment variables file
 rm -f $POLICYAGENT_ENV/policyagent-setup
 
-echo_success "Installation complete"
+echo_success "Policy Agent Installation complete"
