@@ -65,7 +65,7 @@ pa_getlog() {
 
 openssl_encrypted_file() {
   local filename="$1"
-  encheader=`hd -n 8 $filename | head -n 1 | grep "Salted__"`
+  encheader=`hexdump -C -n 8 $filename | head -n 1 | grep "Salted__"`
   if [ -n "$encheader" ]; then
       return 0
   fi
@@ -87,7 +87,7 @@ pa_encrypt() {
   openssl enc -aes-128-ofb -in "$infile" -out "$encfile" -pass pass:password
   if openssl_encrypted_file $encfile; then
      mv $encfile $infile
-     return 0
+     retur n0
   fi
   echo "error: failed to encrypt $infile"
   return 3
@@ -95,11 +95,22 @@ pa_encrypt() {
 
 pa_decrypt() {
   local infile="$1"
-  local decfile="$infile.dec"
+  #local decfile="$infile.dec"
+  # Abhay : Moved this below as MOUNT_LOCATION is not inited here
+  #local decfile=$MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID
   local private_key=/opt/trustagent/configuration/bindingkey.blob
-  local dek_id=/var/lib/nova/dek_id
   local dek_base64=/var/lib/nova/dek_id_base64
-  
+
+  #VM-enc
+  DISK_LOCATION=/var/lib/nova/instances/enc_disks
+  MOUNT_LOCATION=/mnt/crypto/
+  ENC_KEY_LOCATION=/var/lib/nova/keys/
+  NOVA_BASE=/var/lib/nova/instances/_base/
+  NOVA_INSTANCES=/var/lib/nova/instances/
+  export BINDING_KEY_PASSWORD=$(cat /opt/trustagent/configuration/trustagent.properties | grep binding.key.secret | cut -d = -f 2)  
+  local decdir=$MOUNT_LOCATION/$IMAGE_ID/_base/
+  decfile=$MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID
+
   if [ ! -f $infile ]; then
      pa_log "error: failed to decrypt $infile: file not found"
      return 1
@@ -117,29 +128,159 @@ pa_decrypt() {
       pa_log "No DEK URL"
 	  exit 1
   fi
-     
-  #Uncomment the following line with new KMS integration
-   export BINDING_KEY_PASSWORD=$(cat /opt/trustagent/configuration/trustagent.properties | grep binding.key.secret | cut -d = -f 2)
-   tpm_unbindaeskey -k $private_key -i "${key_id}.key"  -o "${key_id}.dek" -q BINDING_KEY_PASSWORD -t -x
-   
-   openssl enc -base64 -in "${key_id}.dek" -out $dek_base64
-   
-   export pa_dek_key=`cat $dek_base64`
-   openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass env:pa_dek_key
-  #End of decrytion
-
- 
-  if ! openssl_encrypted_file $decfile; then
-     if [ -n "$IMAGE_ID" ]; then
-         pa_log "Decrypted image: $IMAGE_ID"
-         # XXX DEBUG for debugging only - 
-         #cp $decfile /tmp/image.dec
-     fi
-     mv $decfile $infile
-     return 0
+  
+  #VM-enc
+  if [ ! -d "$DISK_LOCATION" ]; then
+      mkdir $DISK_LOCATION
   fi
-  echo "error: failed to decrypt $infile"
-  return 2
+  
+  if [ ! -d "$MOUNT_LOCATION/$IMAGE_ID" ]; then
+      mkdir -p $MOUNT_LOCATION/$IMAGE_ID
+  fi
+ 
+   
+  if [ ! -d "$DISK_LOCATION/$IMAGE_ID" ]; then
+      #TODO: The size of the sparse file should be configurable
+      pa_log "truncate -s 2G $DISK_LOCATION/$IMAGE_ID  "
+      truncate -s 2G $DISK_LOCATION/$IMAGE_ID  
+      sparse_file_exit_status=`echo $?`
+      pa_log "The sparse file creation status: $sparse_file_exit_status"      
+
+
+      loop_dev=`losetup --find`
+      loopdev_exit_status=`echo $?`
+      pa_log "Loop_dev: $loop_dev"
+      pa_log "The loopdev  status: $loopdev_exit_status"
+      if [ - z $loop_dev ]; then
+          #TODO: Keep track of loopback device numbers being used
+           pa_log "Reqires additional loop device for use"
+           count_loop_dev=`ls -l /dev/loop* | wc -l`
+           if ["$count_loop_dev" > 8 ]; then
+               pa_log "Create a new loop device for use"
+               $count_loop_dev=$count_loop_dev-1
+               loop_dev=`mknod  -m 660 /dev/loop$count_loop_dev -b 7 count_loop_dev`
+           else
+               pa_log "Unable to create additional loop device"
+               exit 1
+           fi
+      elif [ ! -z "$loop_dev" ]; then
+          pa_log "losetup $loop_dev $DISK_LOCATION/$IMAGE_ID"
+          losetup $loop_dev $DISK_LOCATION/$IMAGE_ID
+      else
+           pa_log "No loop device available"
+           exit 1
+      fi
+      
+      losetup --find >> $logfile 2>> $logfile
+    
+      #open the dm-crypt device with password
+      #tpm_unbindaeskey –k /opt/trustagent/configuration/bindingkey.blob –i $ENC_KEY_LOCATION/$image_ID.key -o "$ENC_KEY_LOCATION/${IMAGE_ID}.dek"  –q BINDING_KEY_PASSWORD –t -x | openssl enc -base64 cmd  | cryptsetup luksOpen –-key-file=-  $loop_dev $IMAGE_ID
+
+    #Delete this later 
+      /opt/trustagent/bin/tpm_unbindaeskey -k $private_key -i "$ENC_KEY_LOCATION/${IMAGE_ID}.key"  -o "$ENC_KEY_LOCATION/${IMAGE_ID}.dek" -q BINDING_KEY_PASSWORD -t -x 2>> $logfile
+     
+      pa_log "loopback device: $loop_dev"
+
+      pa_log "cryptsetup -v luksFormat --key-file="$ENC_KEY_LOCATION/${IMAGE_ID}.dek" $loop_dev"
+      echo YES | cryptsetup -v luksFormat --key-file="$ENC_KEY_LOCATION/${IMAGE_ID}.dek" $loop_dev 2>> $logfile
+      luksFormat_status=`echo $?`
+      pa_log "luksFormat : $luksFormat_status"
+
+	pa_log "cryptsetup -v luksOpen --key-file="$ENC_KEY_LOCATION/${IMAGE_ID}.dek" $loop_dev $IMAGE_ID"
+      cryptsetup -v luksOpen --key-file="$ENC_KEY_LOCATION/${IMAGE_ID}.dek" $loop_dev $IMAGE_ID 2>> $logfile
+      luksOpen_status=`echo $?`
+      pa_log "luksOpen : $luksOpen_status"
+
+      pa_log "mkfs.ext4 /dev/mapper/$IMAGE_ID"
+      #FORMAT ENCRYPTED DEVICE WITH EXT4 FILE SYSTEM
+      mkfs.ext4 /dev/mapper/$IMAGE_ID
+
+
+     #MOUNT DEVICE OVER MOUNT LOCATION IDENTIFIED BY <IMAGE_UUID>
+     if [ -d "$MOUNT_LOCATION/$IMAGE_ID" ]; then
+	 pa_log "mount -t ext4 /dev/mapper/$IMAGE_ID $MOUNT_LOCATION/$IMAGE_ID"
+         mount -t ext4 /dev/mapper/$IMAGE_ID $MOUNT_LOCATION/$IMAGE_ID
+    else
+        pa_log "Exit the policy agent"
+        exit 1
+    fi
+    #Delete
+  else
+      pa_log "Sparse file for the current image id already exists: $DISK_LOCATION/$IMAGE_ID"
+  fi
+   
+  if [ ! -d "$MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID" ]; then
+      #pa_log "mkdir -p $MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID"
+      #mkdir -p $MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID
+      # Abhay : removed the ImageID from end
+      pa_log "mkdir -p $MOUNT_LOCATION/$IMAGE_ID/_base"
+      mkdir -p $MOUNT_LOCATION/$IMAGE_ID/_base
+  else
+      pa_log "mount location _base dir already exits: $MOUNT_LOCATION/$IMAGE_ID/_base/"
+  fi
+  #VM-enc
+  
+   ls -la $MOUNT_LOCATION >> $logfile
+   ls -la $MOUNT_LOCATION/$IMAGE_ID/_base/ >> $logfile
+     
+   if [ -n "$ENC_KEY_LOCATION/${IMAGE_ID}.key" ]; then
+	pa_log "/opt/trustagent/bin/tpm_unbindaeskey -k $private_key -i $ENC_KEY_LOCATION/${IMAGE_ID}.key  -o $ENC_KEY_LOCATION/${IMAGE_ID}.dek -q BINDING_KEY_PASSWORD -t -x"
+       /opt/trustagent/bin/tpm_unbindaeskey -k $private_key -i "$ENC_KEY_LOCATION/${IMAGE_ID}.key"  -o "$ENC_KEY_LOCATION/${IMAGE_ID}.dek" -q BINDING_KEY_PASSWORD -t -x 2>> $logfile
+    
+	pa_log "openssl enc -base64 -in $ENC_KEY_LOCATION/${IMAGE_ID}.dek -out $dek_base64"
+       openssl enc -base64 -in "$ENC_KEY_LOCATION/${IMAGE_ID}.dek" -out $dek_base64 2>> $logfile
+       
+       export pa_dek_key=`cat $dek_base64`
+       cat $pa_dek_key >> $logfile
+	pa_log "openssl enc -d -aes-128-ofb -in $infile -out $decfile -pass env:pa_dek_key"
+       openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass env:pa_dek_key 2>> $logfile
+       dek_status=`echo $?`
+       pa_log "decryptionn: $dek_status"
+
+      ls -la $MOUNT_LOCATION/$IMAGE_ID/_base/ >> $logfile
+   fi
+ 
+   if ! openssl_encrypted_file $decfile; then
+      if [ -n "$IMAGE_ID" ]; then
+          pa_log "Decrypted image: $IMAGE_ID"
+          # XXX DEBUG for debugging only - 
+          #cp $decfile /tmp/image.dec
+      fi
+
+      #mv $decfile $infile
+      #VM-enc
+       #CREATE A LINK SO THAT NOVA CAN ACCESS BASE IMAGE FROM ENCRYPTED DEVICE SEEMLESSLY
+       pa_log "ln -s -f $decfile $TARGET"
+       ln -s -f $decfile $TARGET 2>> $logfile
+       link_status=`echo $?`
+       pa_log "Link_Status: $link_status"
+	# Abhay : Move the infile before creation of link
+	#pa_log "mv $infile /tmp/$infile"
+	#mv $infile /tmp/.
+	#pa_log "ln -s $decfile $infile"
+        #ln -s $decfile $infile
+	#pa_log "chown nova:kvm $decfile"
+	#chown nova:kvm $decfile
+	#pa_log "chown nova:kvm $infile"
+	#chown nova:kvm $infile
+
+      #if [ ! -d "$MOUNT_LOCATION/$INSTANCE_ID" ]; then
+      #    mkdir -p $MOUNT_LOCATION/$INSTANCE_ID
+           mv $INSTANCE_DIR $MOUNT_LOCATION/$IMAGE_ID/$INASTANCE_ID/
+           check_status=`echo $?`
+           pa_log "Move INSTANCE_DIR status: $check_status"
+           if [ "$check_status" -eq 0 ]; then
+               ln -s -f $MOUNT_LOCATION/$IMAGE_ID/$INSTANCE_ID $INSTANCE_DIR
+           fi
+      #fi 
+      #VM-enc
+      rm -rf $ENC_KEY_LOCATION/${IMAGE_ID}.dek
+ 
+      return 0
+  else
+      pa_log "error: failed to decrypt $infile"
+      return 2
+  fi
 }
 
 
@@ -236,10 +377,9 @@ parse_args() {
 }
 
 generate_manifestlist(){
-    #if the verification was successful, perform the xml parsing here
      cat $trust_policy_loc | xmlstarlet fo --noindent | sed -e 's/ xmlns.*=".*"//g' | xmlstarlet sel -t -c "/TrustPolicy/Whitelist" | xmlstarlet ed -u '/Whitelist/*' -v '' | xmlstarlet ed -r "Whitelist" -v "Manifest" |xmlstarlet ed -r "/Manifest/@DigestAlg" -v 'xmlns="mtwilson:trustdirector:manifest:1.1" DigestAlg'> $INSTANCE_DIR/manifestlist.xml
      
-	 #cat $INSTANCE_DIR/trustpolicy.xml >> $logfile
+     #cat $INSTANCE_DIR/trustpolicy.xml >> $logfile
      #cat $INSTANCE_DIR/manifestlist.xml >> $logfile
      #ls -l $INSTANCE_DIR >> $logfile   
 }
@@ -258,34 +398,38 @@ pa_launch() {
   pa_log "MTW_TRUST_POLICY: $MTW_TRUST_POLICY"
   INSTANCE_DIR=$INSTANCE_DIR/$INSTANCE_ID
   pa_log "INSTANCE_DIR: $INSTANCE_DIR"
+
+  
   
     if [ -n "$TARGET" ]; then
         if [ -f $TARGET ]; then
-		    pa_log "Found base image: $TARGET"
-            
-		   #untar the file to extract the vm image and trust policy
-		   untar_file $TARGET
+	    pa_log "Found base image tar file: $TARGET"
+          
+	   #untar the file to extract the vm image and trust policy
+	   untar_file $TARGET
 	 
            #start TP Check the Encryption Tag, extract DEK and Checksum
             if [ -n "$trust_policy_loc" ]; then
                verify_trust_policy_signature
-    
+   
                #parse the trust policy to generate the manifest list
                generate_manifestlist
      
               #parse trust policy to check if image is encrypted
                parse_trust_policy
            else
-               pa_log "Trust policy was not found, proceeding with the image launch"
+               pa_log "Trust policy was not found"
+               exit 1
            fi
            
            if [ ! -z $CHECKSUM ] && [ ! -z $DEK_URL ]; then
               pa_decrypt $TARGET >> $logfile
-              local current_md5=$(md5 $TARGET)
+              local current_md5=$(md5 $decfile)
               pa_log "Checksum after decryption: $current_md5"
               if [ "$current_md5" != "$CHECKSUM" ]; then
                  pa_log "Error: checksum is $current_md5 but expected $CHECKSUM"
-                 exit 1
+                 #exit 1
+		 exit 0
 	      else
 	          pa_log "image decryption completed"
               fi
@@ -375,9 +519,6 @@ pa_request_dek() {
   #wget --no-check-certificate --header "Content-Type: application/octet-stream" --post-file=$aikdir/aikcert.crt "$url"
   #curl --verbose --insecure -X POST -H "Content-Type: application/octet-stream" --data-binary @$aikdir/aikcert.crt "$url"
  
-  #Uncomment the following line for new KMS integration and comment the above line
-  #Uncomment the below line to integrate the KMS proxy
- 
   if [  -f $configfile ]; then
       kms_proxy_ipaddress=$(grep "KMS_PROXY_IP" $configfile | cut -d "=" -f2)
       kms_proxy_port=$(grep "JETTY_PORT" $configfile | cut -d "=" -f2)
@@ -385,7 +526,11 @@ pa_request_dek() {
 	  pa_log "kms jetty port: $kms_proxy_port"
    
       if [ ! -z "$kms_proxy_ipaddress" ] && [ ! -z "$kms_proxy_port" ]; then
-         curl --proxy http://$kms_proxy_ipaddress:$kms_proxy_port --verbose -X POST -H "Content-Type: application/x-pem-file" -H "Accept: application/octet-stream" --data-binary @$aikdir/aik.pem  "$url" > "${key_id}.key"
+          if [ ! -d $ENC_KEY_LOCATION ]; then
+              mkdir $ENC_KEY_LOCATION
+          fi
+         curl --proxy http://$kms_proxy_ipaddress:$kms_proxy_port --verbose -X POST -H "Content-Type: application/x-pem-file" -H "Accept: application/octet-stream" --data-binary @$aikdir/aik.pem  "$url" > "$ENC_KEY_LOCATION/${IMAGE_ID}.key"
+         
      else
           pa_log "failed to make a request to kms proxy. Could not find the proxy url"
           exit 1
@@ -397,7 +542,7 @@ pa_request_dek() {
   
   
 
- if [ -n "${key_id}.key" ]; then
+ if [ -n ""$ENC_KEY_LOCATION/${IMAGE_ID}.key"" ]; then
      pa_log "received key from the key server"
   else
      pa_log "failed to get the Key ID from the Key server"
@@ -406,6 +551,8 @@ pa_request_dek() {
 
 }
 
+pa_log "Num args: $#"
+pa_log "Running as `whoami`"
 pa_log "$@"
 parse_args $@
 
