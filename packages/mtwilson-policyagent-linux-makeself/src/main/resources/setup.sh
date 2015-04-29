@@ -135,6 +135,9 @@ done
 POLICYAGENT_PROPERTIES_FILE=${POLICYAGENT_PROPERTIES_FILE:-"$POLICYAGENT_CONFIGURATION/policyagent.properties"}
 touch "$POLICYAGENT_PROPERTIES_FILE"
 chmod 600 "$POLICYAGENT_PROPERTIES_FILE"
+LIBVIRT_ACTIVATE_LOG_FILE=${LIBVIRT_ACTIVATE_LOG_FILE:-"/var/log/libvirt-activate.log"}
+touch "$LIBVIRT_ACTIVATE_LOG_FILE"
+chmod 600 "$LIBVIRT_ACTIVATE_LOG_FILE"
 
 # previous configuration loading
 load_policyagent_conf() {
@@ -195,6 +198,8 @@ if [ -n "$EXISTING_POLICYAGENT_COMMAND" ]; then
   rm -f "$EXISTING_POLICYAGENT_COMMAND"
 fi
 ln -s $POLICYAGENT_HOME/bin/policyagent.sh /usr/local/bin/policyagent
+ln -s $POLICYAGENT_HOME/bin/libvirt-activate.sh /usr/local/bin/libvirt-activate
+register_startup_script /usr/local/bin/libvirt-activate libvirt-activate
 
 # delete the temporary setup environment variables file
 rm -f $POLICYAGENT_ENV/policyagent-setup
