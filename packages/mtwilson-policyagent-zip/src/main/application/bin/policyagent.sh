@@ -521,8 +521,8 @@ pa_request_dek() {
   #curl --verbose --insecure -X POST -H "Content-Type: application/octet-stream" --data-binary @$aikdir/aikcert.crt "$url"
  
   if [  -f $configfile ]; then
-      kms_proxy_ipaddress=$(grep "KMSPROXY_SERVER" $configfile | cut -d "=" -f2)
-      kms_proxy_port=$(grep "KMSPROXY_SERVER_PORT" $configfile | cut -d "=" -f2)
+      kms_proxy_ipaddress=$(grep "kmsproxy.server" $configfile | cut -d "=" -f2)
+      kms_proxy_port=$(grep "kmsproxy.server.port" $configfile | cut -d "=" -f2)
       pa_log "kms proxy ip address: $kms_proxy_ipaddress"
 	  pa_log "kms jetty port: $kms_proxy_port"
    
