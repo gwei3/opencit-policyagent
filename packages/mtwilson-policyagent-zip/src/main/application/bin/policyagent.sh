@@ -330,7 +330,8 @@ untar_file() {
 verify_trust_policy_signature(){
         if [ -n "$trust_policy_loc" ]; then   
            #Call the Verifier Java snippet
-           /usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trust_policy_loc"
+           tagent verify-trustpolicy-signature "$trust_policy_loc"
+           #/usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trust_policy_loc"
            verifier_exit_status=$(echo $?)
            pa_log "signature verfier exitCode: $verifier_exit_status"
            if [ $verifier_exit_status -eq 0 ]; then
@@ -506,7 +507,7 @@ pa_request_dek() {
     aikdir=/tmp
     dekdir=/tmp
   else
-    pa_fix_aik
+    #pa_fix_aik
     aikdir=/opt/trustagent/configuration
     dekdir=/var/lib/nova
   fi
@@ -520,8 +521,8 @@ pa_request_dek() {
   #curl --verbose --insecure -X POST -H "Content-Type: application/octet-stream" --data-binary @$aikdir/aikcert.crt "$url"
  
   if [  -f $configfile ]; then
-      kms_proxy_ipaddress=$(grep "KMS_PROXY_IP" $configfile | cut -d "=" -f2)
-      kms_proxy_port=$(grep "JETTY_PORT" $configfile | cut -d "=" -f2)
+      kms_proxy_ipaddress=$(grep "kmsproxy.server=" $configfile | cut -d "=" -f2)
+      kms_proxy_port=$(grep "kmsproxy.server.port=" $configfile | cut -d "=" -f2)
       pa_log "kms proxy ip address: $kms_proxy_ipaddress"
 	  pa_log "kms jetty port: $kms_proxy_port"
    
@@ -614,12 +615,12 @@ case "$1" in
     shift
     pa_request_dek $@
     ;;
-  fix-aik)
-    shift
-    pa_fix_aik $@
-    # since this command is probably being run as root, we should ensure the aik is readable to the nova user:
-    # chmod +rx /etc/intel/cloudsecurity
-    ;;
+  #fix-aik)
+  #  shift
+  #  pa_fix_aik $@
+  #  # since this command is probably being run as root, we should ensure the aik is readable to the nova user:
+  #  # chmod +rx /etc/intel/cloudsecurity
+  #  ;;
   *)
     echo "usage: policyagent version|launch|terminate|pause|pause-resume|suspend|suspend-resume|encrypt|decrypt"
     exit 1
