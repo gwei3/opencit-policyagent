@@ -111,7 +111,7 @@ fi
 # create application directories (chown will be repeated near end of this script, after setup)
 for directory in $POLICYAGENT_HOME $POLICYAGENT_CONFIGURATION $POLICYAGENT_ENV $POLICYAGENT_REPOSITORY $POLICYAGENT_LOGS $POLICYAGENT_BIN; do
   mkdir -p $directory
-  chmod 700 $directory
+  chmod 755 $directory
 done
 
 # store directory layout in env file
@@ -190,7 +190,7 @@ unzip -oq $POLICYAGENT_ZIPFILE -d $POLICYAGENT_HOME
 cp $UTIL_SCRIPT_FILE $POLICYAGENT_HOME/bin/functions.sh
 
 # set permissions
-chmod 700 $POLICYAGENT_HOME/bin/*
+chmod 755 $POLICYAGENT_HOME/bin/*
 
 # link /usr/local/bin/policyagent -> /opt/policyagent/bin/policyagent
 EXISTING_POLICYAGENT_COMMAND=`which policyagent`

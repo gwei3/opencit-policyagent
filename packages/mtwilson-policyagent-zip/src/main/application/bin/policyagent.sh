@@ -2,14 +2,6 @@
 logfile=/var/log/policyagent.log
 configfile=/opt/policyagent/configuration/policyagent.properties
 INSTANCE_DIR=/var/lib/nova/instances/
-verifierJavaLoc=/usr/local/bin/
-javaClassName=Validate
-
-export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
-export PATH=$PATH:/usr/lib/jvm/java-7-openjdk-amd64/jre/bin
-export CLASSPATH=/usr/lib/jvm/java-7-openjdk-amd64/lib/
-
-
 
 if [ ! -f $logfile ]; then 
    touch $logfile; 
@@ -94,19 +86,15 @@ pa_encrypt() {
 }
 
 pa_decrypt() {
-  local infile="$1"
-  #local decfile="$infile.dec"
-  # Abhay : Moved this below as MOUNT_LOCATION is not inited here
-  #local decfile=$MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID
-  local private_key=/opt/trustagent/configuration/bindingkey.blob
-  local dek_base64=/var/lib/nova/dek_id_base64
-
-  #VM-enc
   DISK_LOCATION=/var/lib/nova/instances/enc_disks
   MOUNT_LOCATION=/mnt/crypto/
   ENC_KEY_LOCATION=/var/lib/nova/keys/
   NOVA_BASE=/var/lib/nova/instances/_base/
   NOVA_INSTANCES=/var/lib/nova/instances/
+  
+  local infile="$1"
+  local private_key=/opt/trustagent/configuration/bindingkey.blob
+  local dek_base64=/var/lib/nova/dek_id_base64
   export BINDING_KEY_PASSWORD=$(cat /opt/trustagent/configuration/trustagent.properties | grep binding.key.secret | cut -d = -f 2)  
   local decdir=$MOUNT_LOCATION/$IMAGE_ID/_base/
   decfile=$MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID
@@ -129,7 +117,7 @@ pa_decrypt() {
 	  exit 1
   fi
   
-  #VM-enc
+
   if [ ! -d "$DISK_LOCATION" ]; then
       mkdir $DISK_LOCATION
   fi
@@ -150,15 +138,15 @@ pa_decrypt() {
       loop_dev=`losetup --find`
       loopdev_exit_status=`echo $?`
       pa_log "Loop_dev: $loop_dev"
-      pa_log "The loopdev  status: $loopdev_exit_status"
-      if [ - z $loop_dev ]; then
+      pa_log "The loopdev  status: $loopdev_exit_status"/tagent
+      if [ -z $loop_dev ]; then
           #TODO: Keep track of loopback device numbers being used
            pa_log "Reqires additional loop device for use"
            count_loop_dev=`ls -l /dev/loop* | wc -l`
            if ["$count_loop_dev" > 8 ]; then
                pa_log "Create a new loop device for use"
                $count_loop_dev=$count_loop_dev-1
-               loop_dev=`mknod  -m 660 /dev/loop$count_loop_dev -b 7 count_loop_dev`
+               loop_dev=`mknod  -m 660 /dev/loop$count_loop_dev -b 7 $count_loop_dev`
            else
                pa_log "Unable to create additional loop device"
                exit 1
@@ -247,33 +235,20 @@ pa_decrypt() {
           #cp $decfile /tmp/image.dec
       fi
 
-      #mv $decfile $infile
-      #VM-enc
-       #CREATE A LINK SO THAT NOVA CAN ACCESS BASE IMAGE FROM ENCRYPTED DEVICE SEEMLESSLY
+      
        pa_log "ln -s -f $decfile $TARGET"
        ln -s -f $decfile $TARGET 2>> $logfile
        link_status=`echo $?`
        pa_log "Link_Status: $link_status"
-	# Abhay : Move the infile before creation of link
-	#pa_log "mv $infile /tmp/$infile"
-	#mv $infile /tmp/.
-	#pa_log "ln -s $decfile $infile"
-        #ln -s $decfile $infile
-	#pa_log "chown nova:kvm $decfile"
-	#chown nova:kvm $decfile
-	#pa_log "chown nova:kvm $infile"
-	#chown nova:kvm $infile
+	
 
-      #if [ ! -d "$MOUNT_LOCATION/$INSTANCE_ID" ]; then
-      #    mkdir -p $MOUNT_LOCATION/$INSTANCE_ID
-           mv $INSTANCE_DIR $MOUNT_LOCATION/$IMAGE_ID/$INASTANCE_ID/
-           check_status=`echo $?`
-           pa_log "Move INSTANCE_DIR status: $check_status"
-           if [ "$check_status" -eq 0 ]; then
-               ln -s -f $MOUNT_LOCATION/$IMAGE_ID/$INSTANCE_ID $INSTANCE_DIR
-           fi
-      #fi 
-      #VM-enc
+       mv $INSTANCE_DIR $MOUNT_LOCATION/$IMAGE_ID/$INASTANCE_ID/
+       check_status=`echo $?`
+       pa_log "Move INSTANCE_DIR status: $check_status"
+       if [ "$check_status" -eq 0 ]; then
+           ln -s -f $MOUNT_LOCATION/$IMAGE_ID/$INSTANCE_ID $INSTANCE_DIR
+       fi
+      
       rm -rf $ENC_KEY_LOCATION/${IMAGE_ID}.dek
  
       return 0
@@ -296,7 +271,7 @@ untar_file() {
 			     pa_log "temp dir already exists"
 			fi
 			
-            #ls -ltar $TARGET >> $logfile
+            
             if [ "$MTW_TRUST_POLICY" == "glance_image_tar" ]; then
                pa_log " Image is been downloaded from the glance"
                tar -xvf $TARGET -C $temp_dir
@@ -327,16 +302,18 @@ untar_file() {
 }
 
 
-verify_trust_policy_signature(){
-        if [ -n "$trust_policy_loc" ]; then   
+pa_verify_trustpolicy_signature(){
+        trust_policy=$1
+        if [ -n "$trust_policy" ]; then   
            #Call the Verifier Java snippet
-           tagent verify-trustpolicy-signature "$trust_policy_loc"
-           #/usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trust_policy_loc"
-           verifier_exit_status=$(echo $?)
+           tagent verify-trustpolicy-signature "$trust_policy"
+           #/usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trust_policy"
+           verifier_exit_status=$?
            pa_log "signature verfier exitCode: $verifier_exit_status"
            if [ $verifier_exit_status -eq 0 ]; then
                pa_log " Signature verification was successful"
                pa_log "policy agent will proceed to decrypt the image"
+			   cp $trust_policy $INSTANCE_DIR/"trustpolicy.xml"
            else
                pa_log "Signature verification was unsuccessful. VM launch process will be aborted"
                exit 1
@@ -379,11 +356,7 @@ parse_args() {
 
 generate_manifestlist(){
      cat $trust_policy_loc | xmlstarlet fo --noindent | sed -e 's/ xmlns.*=".*"//g' | xmlstarlet sel -t -c "/TrustPolicy/Whitelist" | xmlstarlet ed -u '/Whitelist/*' -v '' | xmlstarlet ed -r "Whitelist" -v "Manifest" |xmlstarlet ed -r "/Manifest/@DigestAlg" -v 'xmlns="mtwilson:trustdirector:manifest:1.1" DigestAlg'> $INSTANCE_DIR/manifestlist.xml
-     
-     #cat $INSTANCE_DIR/trustpolicy.xml >> $logfile
-     #cat $INSTANCE_DIR/manifestlist.xml >> $logfile
-     #ls -l $INSTANCE_DIR >> $logfile   
-}
+ }
 
 pa_launch() {
   pa_log "pa_launch: $@"
@@ -411,7 +384,7 @@ pa_launch() {
 	 
            #start TP Check the Encryption Tag, extract DEK and Checksum
             if [ -n "$trust_policy_loc" ]; then
-               verify_trust_policy_signature
+               pa_verify_trust_policy_signature $trust_policy_loc
    
                #parse the trust policy to generate the manifest list
                generate_manifestlist
@@ -507,7 +480,7 @@ pa_request_dek() {
     aikdir=/tmp
     dekdir=/tmp
   else
-    pa_fix_aik
+    #pa_fix_aik
     aikdir=/opt/trustagent/configuration
     dekdir=/var/lib/nova
   fi
@@ -521,8 +494,8 @@ pa_request_dek() {
   #curl --verbose --insecure -X POST -H "Content-Type: application/octet-stream" --data-binary @$aikdir/aikcert.crt "$url"
  
   if [  -f $configfile ]; then
-      kms_proxy_ipaddress=$(grep "KMSPROXY_SERVER" $configfile | cut -d "=" -f2)
-      kms_proxy_port=$(grep "KMSPROXY_SERVER_PORT" $configfile | cut -d "=" -f2)
+      kms_proxy_ipaddress=$(grep "kmsproxy.server=" $configfile | cut -d "=" -f2)
+      kms_proxy_port=$(grep "kmsproxy.server.port=" $configfile | cut -d "=" -f2)
       pa_log "kms proxy ip address: $kms_proxy_ipaddress"
 	  pa_log "kms jetty port: $kms_proxy_port"
    
@@ -615,12 +588,12 @@ case "$1" in
     shift
     pa_request_dek $@
     ;;
-  fix-aik)
-    shift
-    pa_fix_aik $@
-    # since this command is probably being run as root, we should ensure the aik is readable to the nova user:
-    # chmod +rx /etc/intel/cloudsecurity
-    ;;
+  #fix-aik)
+  #  shift
+  #  pa_fix_aik $@
+  #  # since this command is probably being run as root, we should ensure the aik is readable to the nova user:
+  #  # chmod +rx /etc/intel/cloudsecurity
+  #  ;;
   *)
     echo "usage: policyagent version|launch|terminate|pause|pause-resume|suspend|suspend-resume|encrypt|decrypt"
     exit 1
