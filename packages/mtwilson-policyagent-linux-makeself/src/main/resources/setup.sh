@@ -86,6 +86,7 @@ policyagent_backup_configuration() {
   if [ -n "$POLICYAGENT_CONFIGURATION" ] && [ -d "$POLICYAGENT_CONFIGURATION" ]; then
     datestr=`date +%Y%m%d.%H%M`
     backupdir=/var/backup/policyagent.configuration.$datestr
+    mkdir -p "$backupdir"
     cp -r $POLICYAGENT_CONFIGURATION $backupdir
   fi
 }
@@ -93,6 +94,7 @@ policyagent_backup_repository() {
   if [ -n "$POLICYAGENT_REPOSITORY" ] && [ -d "$POLICYAGENT_REPOSITORY" ]; then
     datestr=`date +%Y%m%d.%H%M`
     backupdir=/var/backup/policyagent.repository.$datestr
+    mkdir -p "$backupdir"
     cp -r $POLICYAGENT_REPOSITORY $backupdir
   fi
 }
