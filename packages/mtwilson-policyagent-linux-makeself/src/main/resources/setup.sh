@@ -194,13 +194,20 @@ cp $UTIL_SCRIPT_FILE $POLICYAGENT_HOME/bin/functions.sh
 # set permissions
 chmod 755 $POLICYAGENT_HOME/bin/*
 
-# link /usr/local/bin/policyagent -> /opt/policyagent/bin/policyagent
-EXISTING_POLICYAGENT_COMMAND=`which policyagent`
-if [ -n "$EXISTING_POLICYAGENT_COMMAND" ]; then
-  rm -f "$EXISTING_POLICYAGENT_COMMAND"
+# policyagent
+policyagentBin=`which policyagent 2>/dev/null`
+if [ -n "$policyagentBin" ]; then
+  rm -f "$policyagentBin"
 fi
-ln -s $POLICYAGENT_HOME/bin/policyagent.sh /usr/local/bin/policyagent
-ln -s $POLICYAGENT_HOME/bin/libvirt-activate.sh /usr/local/bin/libvirt-activate
+ln -s "$POLICYAGENT_HOME/bin/policyagent.sh" "/usr/local/bin/policyagent"
+
+# libvirt-activate
+libvirtActivate=`which libvirt-activate 2>/dev/null`
+if [ -n "$libvirtActivate" ]; then
+  rm -f "$libvirtActivate"
+fi
+ln -s "$POLICYAGENT_HOME/bin/libvirt-activate.sh" "/usr/local/bin/libvirt-activate"
+
 register_startup_script /usr/local/bin/libvirt-activate libvirt-activate
 
 # delete the temporary setup environment variables file
