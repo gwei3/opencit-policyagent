@@ -130,7 +130,16 @@ pa_decrypt() {
   if [ ! -d "$DISK_LOCATION/$IMAGE_ID" ]; then
       #TODO: The size of the sparse file should be configurable
       pa_log "truncate -s 2G $DISK_LOCATION/$IMAGE_ID  "
-      truncate -s 2G $DISK_LOCATION/$IMAGE_ID  
+      size_in_percentage=$(grep "sparsefile.size=" $configfile | cut -d "=" -f2)
+      image_size=$(stat -c%s "$infile")
+      pa_log " image size is: $image_size"
+      if [ ! -z "$image_size" ] && [ ! -z "$size_in_percentage" ]; then
+          size_in_bytes=$(($image_size*$size_in_percentage/100))
+          pa_log "Extra size in bytes: $size_in_bytes"
+          sparse_file_size=$(($image_size+$size_in_bytes))
+          pa_log "Sparse file size will be: $sparse_file_size"
+      fi
+      truncate -s $sparse_file_size $DISK_LOCATION/$IMAGE_ID  
       sparse_file_exit_status=$?
       pa_log "The sparse file creation status: $sparse_file_exit_status"      
 
