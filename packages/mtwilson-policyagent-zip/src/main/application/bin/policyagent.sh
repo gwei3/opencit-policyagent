@@ -138,6 +138,9 @@ pa_decrypt() {
           pa_log "Extra size in bytes: $size_in_bytes"
           sparse_file_size=$(($image_size+$size_in_bytes))
           pa_log "Sparse file size will be: $sparse_file_size"
+      else
+          pa_log "Please provide a valid integer number in the config file to specify the sparse file size"
+          exit 1
       fi
       truncate -s $sparse_file_size $DISK_LOCATION/$IMAGE_ID  
       sparse_file_exit_status=$?
