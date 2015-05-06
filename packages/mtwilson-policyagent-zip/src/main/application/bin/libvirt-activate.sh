@@ -33,7 +33,7 @@ mount_enc_partitions() {
 		#tpm_unseal $KEY > $DEK
 	 	# Abhay : test : uncomment start
 		#/opt/trustagent/bin/tpm_unbindaeskey -k /opt/trustagent/configuration/binding.blob -i $KEY -o "$DEK/${IMAGE_ID}.dek" -q BINDING_KEY -t -x
-                /opt/trustagent/bin/tpm_unbindaeskey -k /opt/trustagent/configuration/bindingkey.blob -i $KEY -o "$DEK/${IMAGE_ID}.dek" -q BINDING_KEY_PASSWORD -t -x
+                #/opt/trustagent/bin/tpm_unbindaeskey -k /opt/trustagent/configuration/bindingkey.blob -i $KEY -o "$DEK/${IMAGE_ID}.dek" -q BINDING_KEY_PASSWORD -t -x
 		# Abhay : test : uncomment end
 	
 		# Retrieve the loop device via losetup
@@ -54,11 +54,11 @@ mount_enc_partitions() {
 		    echo "Error : Created device not visible"
 		fi
 		# cryptsetup luksFormat --keyfile=$DEK /dev/mapper/$IMAGE_ID
-		echo "cryptsetup luksOpen --key-file=$DEK/${IMAGE_ID}.dek $FREE_DEVICE $IMAGE_ID"
-		cryptsetup luksOpen --key-file="$DEK/${IMAGE_ID}.dek" $FREE_DEVICE $IMAGE_ID
+		/opt/trustagent/bin/tpm_unbindaeskey -k /opt/trustagent/configuration/bindingkey.blob -i $ENC_KEY_LOCATION/${IMAGE_ID}.key -q BINDING_KEY_PASSWORD -t -x  | cryptsetup -v luksOpen --key-file=- $FREE_DEVICE $IMAGE_ID
+		
 		# Delete the decrypted key
 		# Abhay : uncomment this : 
-                rm -rf "$DEK/${IMAGE_ID}.dek"
+                #rm -rf "$DEK/${IMAGE_ID}.dek"
 		# Assuming $MOUNT_LOCATION/$IMAGE_ID is already present 
 		mount -t ext4 /dev/mapper/$IMAGE_ID $MOUNT_LOCATION/$IMAGE_ID
 		# VM_Images will be links available under /var/lib/nova/instance/encrypted_images/UUID

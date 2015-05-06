@@ -2,14 +2,6 @@
 logfile=/var/log/policyagent.log
 configfile=/opt/policyagent/configuration/policyagent.properties
 INSTANCE_DIR=/var/lib/nova/instances/
-verifierJavaLoc=/usr/local/bin/
-javaClassName=Validate
-
-export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
-export PATH=$PATH:/usr/lib/jvm/java-7-openjdk-amd64/jre/bin
-export CLASSPATH=/usr/lib/jvm/java-7-openjdk-amd64/lib/
-
-
 
 if [ ! -f $logfile ]; then 
    touch $logfile; 
@@ -94,19 +86,15 @@ pa_encrypt() {
 }
 
 pa_decrypt() {
-  local infile="$1"
-  #local decfile="$infile.dec"
-  # Abhay : Moved this below as MOUNT_LOCATION is not inited here
-  #local decfile=$MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID
-  local private_key=/opt/trustagent/configuration/bindingkey.blob
-  local dek_base64=/var/lib/nova/dek_id_base64
-
-  #VM-enc
   DISK_LOCATION=/var/lib/nova/instances/enc_disks
   MOUNT_LOCATION=/mnt/crypto/
   ENC_KEY_LOCATION=/var/lib/nova/keys/
   NOVA_BASE=/var/lib/nova/instances/_base/
   NOVA_INSTANCES=/var/lib/nova/instances/
+  
+  local infile="$1"
+  local private_key=/opt/trustagent/configuration/bindingkey.blob
+  local dek_base64=/var/lib/nova/dek_id_base64
   export BINDING_KEY_PASSWORD=$(cat /opt/trustagent/configuration/trustagent.properties | grep binding.key.secret | cut -d = -f 2)  
   local decdir=$MOUNT_LOCATION/$IMAGE_ID/_base/
   decfile=$MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID
@@ -129,7 +117,7 @@ pa_decrypt() {
 	  exit 1
   fi
   
-  #VM-enc
+
   if [ ! -d "$DISK_LOCATION" ]; then
       mkdir $DISK_LOCATION
   fi
@@ -142,23 +130,33 @@ pa_decrypt() {
   if [ ! -d "$DISK_LOCATION/$IMAGE_ID" ]; then
       #TODO: The size of the sparse file should be configurable
       pa_log "truncate -s 2G $DISK_LOCATION/$IMAGE_ID  "
-      truncate -s 2G $DISK_LOCATION/$IMAGE_ID  
-      sparse_file_exit_status=`echo $?`
+      size_in_percentage=$(grep "sparsefile.size=" $configfile | cut -d "=" -f2)
+      image_size=$(stat -c%s "$infile")
+      pa_log " image size is: $image_size"
+      if [ ! -z "$image_size" ] && [ ! -z "$size_in_percentage" ]; then
+          size_in_bytes=$(($image_size*$size_in_percentage/100))
+          pa_log "Extra size in bytes: $size_in_bytes"
+          sparse_file_size=$(($image_size+$size_in_bytes))
+          pa_log "Sparse file size will be: $sparse_file_size"
+      fi
+      truncate -s $sparse_file_size $DISK_LOCATION/$IMAGE_ID  
+      sparse_file_exit_status=$?
       pa_log "The sparse file creation status: $sparse_file_exit_status"      
 
 
       loop_dev=`losetup --find`
-      loopdev_exit_status=`echo $?`
+      loopdev_exit_status=$?
       pa_log "Loop_dev: $loop_dev"
       pa_log "The loopdev  status: $loopdev_exit_status"
-      if [ - z $loop_dev ]; then
+      if [ -z $loop_dev ]; then
           #TODO: Keep track of loopback device numbers being used
-           pa_log "Reqires additional loop device for use"
+           pa_log "Requires additional loop device for use"
            count_loop_dev=`ls -l /dev/loop* | wc -l`
            if ["$count_loop_dev" > 8 ]; then
                pa_log "Create a new loop device for use"
+			   #Subtracting the count by 1 as there are 8 loop devices and 1 controller device
                $count_loop_dev=$count_loop_dev-1
-               loop_dev=`mknod  -m 660 /dev/loop$count_loop_dev -b 7 count_loop_dev`
+               loop_dev=`mknod  -m 660 /dev/loop$count_loop_dev -b 7 $count_loop_dev`
            else
                pa_log "Unable to create additional loop device"
                exit 1
@@ -174,21 +172,21 @@ pa_decrypt() {
       losetup --find >> $logfile 2>> $logfile
     
       #open the dm-crypt device with password
-      #tpm_unbindaeskey –k /opt/trustagent/configuration/bindingkey.blob –i $ENC_KEY_LOCATION/$image_ID.key -o "$ENC_KEY_LOCATION/${IMAGE_ID}.dek"  –q BINDING_KEY_PASSWORD –t -x | openssl enc -base64 cmd  | cryptsetup luksOpen –-key-file=-  $loop_dev $IMAGE_ID
+      #tpm_unbindaeskey –k /opt/trustagent/configuration/bindingkey.blob –i $ENC_KEY_LOCATION/$image_ID.key –q BINDING_KEY_PASSWORD –t -x | openssl enc -base64 cmd  | cryptsetup luksOpen –-key-file=-  $loop_dev $IMAGE_ID
 
     #Delete this later 
-      /opt/trustagent/bin/tpm_unbindaeskey -k $private_key -i "$ENC_KEY_LOCATION/${IMAGE_ID}.key"  -o "$ENC_KEY_LOCATION/${IMAGE_ID}.dek" -q BINDING_KEY_PASSWORD -t -x 2>> $logfile
+      #/opt/trustagent/bin/tpm_unbindaeskey -k $private_key -i "$ENC_KEY_LOCATION/${IMAGE_ID}.key"  -o "$ENC_KEY_LOCATION/${IMAGE_ID}.dek" -q BINDING_KEY_PASSWORD -t -x 2>> $logfile
      
       pa_log "loopback device: $loop_dev"
 
       pa_log "cryptsetup -v luksFormat --key-file="$ENC_KEY_LOCATION/${IMAGE_ID}.dek" $loop_dev"
-      echo YES | cryptsetup -v luksFormat --key-file="$ENC_KEY_LOCATION/${IMAGE_ID}.dek" $loop_dev 2>> $logfile
-      luksFormat_status=`echo $?`
+      /opt/trustagent/bin/tpm_unbindaeskey -k /opt/trustagent/configuration/bindingkey.blob -i $ENC_KEY_LOCATION/${IMAGE_ID}.key -q BINDING_KEY_PASSWORD -t -x | cryptsetup -v --batch-mode luksFormat --key-file=- $loop_dev 2>> $logfile
+      luksFormat_status=$?
       pa_log "luksFormat : $luksFormat_status"
 
-	pa_log "cryptsetup -v luksOpen --key-file="$ENC_KEY_LOCATION/${IMAGE_ID}.dek" $loop_dev $IMAGE_ID"
-      cryptsetup -v luksOpen --key-file="$ENC_KEY_LOCATION/${IMAGE_ID}.dek" $loop_dev $IMAGE_ID 2>> $logfile
-      luksOpen_status=`echo $?`
+        pa_log "cryptsetup -v luksOpen --key-file="$ENC_KEY_LOCATION/${IMAGE_ID}.dek" $loop_dev $IMAGE_ID"
+       /opt/trustagent/bin/tpm_unbindaeskey -k /opt/trustagent/configuration/bindingkey.blob -i $ENC_KEY_LOCATION/${IMAGE_ID}.key -q BINDING_KEY_PASSWORD -t -x  | cryptsetup -v luksOpen --key-file=- $loop_dev $IMAGE_ID 2>> $logfile
+      luksOpen_status=$?
       pa_log "luksOpen : $luksOpen_status"
 
       pa_log "mkfs.ext4 /dev/mapper/$IMAGE_ID"
@@ -210,9 +208,6 @@ pa_decrypt() {
   fi
    
   if [ ! -d "$MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID" ]; then
-      #pa_log "mkdir -p $MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID"
-      #mkdir -p $MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID
-      # Abhay : removed the ImageID from end
       pa_log "mkdir -p $MOUNT_LOCATION/$IMAGE_ID/_base"
       mkdir -p $MOUNT_LOCATION/$IMAGE_ID/_base
   else
@@ -224,17 +219,17 @@ pa_decrypt() {
    ls -la $MOUNT_LOCATION/$IMAGE_ID/_base/ >> $logfile
      
    if [ -n "$ENC_KEY_LOCATION/${IMAGE_ID}.key" ]; then
-	pa_log "/opt/trustagent/bin/tpm_unbindaeskey -k $private_key -i $ENC_KEY_LOCATION/${IMAGE_ID}.key  -o $ENC_KEY_LOCATION/${IMAGE_ID}.dek -q BINDING_KEY_PASSWORD -t -x"
-       /opt/trustagent/bin/tpm_unbindaeskey -k $private_key -i "$ENC_KEY_LOCATION/${IMAGE_ID}.key"  -o "$ENC_KEY_LOCATION/${IMAGE_ID}.dek" -q BINDING_KEY_PASSWORD -t -x 2>> $logfile
+	   pa_log "/opt/trustagent/bin/tpm_unbindaeskey -k $private_key -i $ENC_KEY_LOCATION/${IMAGE_ID}.key  -o $ENC_KEY_LOCATION/${IMAGE_ID}.dek -q BINDING_KEY_PASSWORD -t -x"
+       #/opt/trustagent/bin/tpm_unbindaeskey -k $private_key -i "$ENC_KEY_LOCATION/${IMAGE_ID}.key"  -o "$ENC_KEY_LOCATION/${IMAGE_ID}.dek" -q BINDING_KEY_PASSWORD -t -x 2>> $logfile
     
-	pa_log "openssl enc -base64 -in $ENC_KEY_LOCATION/${IMAGE_ID}.dek -out $dek_base64"
-       openssl enc -base64 -in "$ENC_KEY_LOCATION/${IMAGE_ID}.dek" -out $dek_base64 2>> $logfile
+	   pa_log "openssl enc -base64 -in $ENC_KEY_LOCATION/${IMAGE_ID}.dek -out $dek_base64"
+       export pa_dek_key=`/opt/trustagent/bin/tpm_unbindaeskey -k /opt/trustagent/configuration/bindingkey.blob -i $ENC_KEY_LOCATION/${IMAGE_ID}.key -q BINDING_KEY_PASSWORD -t -x  | openssl enc -base64`
        
-       export pa_dek_key=`cat $dek_base64`
+       #export pa_dek_key=`cat $dek_base64`
        cat $pa_dek_key >> $logfile
-	pa_log "openssl enc -d -aes-128-ofb -in $infile -out $decfile -pass env:pa_dek_key"
+	   pa_log "openssl enc -d -aes-128-ofb -in $infile -out $decfile -pass env:pa_dek_key"
        openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass env:pa_dek_key 2>> $logfile
-       dek_status=`echo $?`
+       dek_status=$?
        pa_log "decryptionn: $dek_status"
 
       ls -la $MOUNT_LOCATION/$IMAGE_ID/_base/ >> $logfile
@@ -247,33 +242,20 @@ pa_decrypt() {
           #cp $decfile /tmp/image.dec
       fi
 
-      #mv $decfile $infile
-      #VM-enc
-       #CREATE A LINK SO THAT NOVA CAN ACCESS BASE IMAGE FROM ENCRYPTED DEVICE SEEMLESSLY
+      
        pa_log "ln -s -f $decfile $TARGET"
        ln -s -f $decfile $TARGET 2>> $logfile
        link_status=`echo $?`
        pa_log "Link_Status: $link_status"
-	# Abhay : Move the infile before creation of link
-	#pa_log "mv $infile /tmp/$infile"
-	#mv $infile /tmp/.
-	#pa_log "ln -s $decfile $infile"
-        #ln -s $decfile $infile
-	#pa_log "chown nova:kvm $decfile"
-	#chown nova:kvm $decfile
-	#pa_log "chown nova:kvm $infile"
-	#chown nova:kvm $infile
+	
 
-      #if [ ! -d "$MOUNT_LOCATION/$INSTANCE_ID" ]; then
-      #    mkdir -p $MOUNT_LOCATION/$INSTANCE_ID
-           mv $INSTANCE_DIR $MOUNT_LOCATION/$IMAGE_ID/$INASTANCE_ID/
-           check_status=`echo $?`
-           pa_log "Move INSTANCE_DIR status: $check_status"
-           if [ "$check_status" -eq 0 ]; then
-               ln -s -f $MOUNT_LOCATION/$IMAGE_ID/$INSTANCE_ID $INSTANCE_DIR
-           fi
-      #fi 
-      #VM-enc
+       mv $INSTANCE_DIR $MOUNT_LOCATION/$IMAGE_ID/$INASTANCE_ID/
+       check_status=$?
+       pa_log "Move INSTANCE_DIR status: $check_status"
+       if [ "$check_status" -eq 0 ]; then
+           ln -s -f $MOUNT_LOCATION/$IMAGE_ID/$INSTANCE_ID $INSTANCE_DIR
+       fi
+      
       rm -rf $ENC_KEY_LOCATION/${IMAGE_ID}.dek
  
       return 0
@@ -290,13 +272,13 @@ untar_file() {
             local temp_dir=$TARGET"_temp"
             trust_policy_loc="${TARGET}.xml"
             if [ ! -d "$temp_dir" ]; then
-                 pa_log "created instance dir"
+                 pa_log "created temp dir"
                  mkdir $temp_dir
             else
 			     pa_log "temp dir already exists"
 			fi
 			
-            #ls -ltar $TARGET >> $logfile
+            
             if [ "$MTW_TRUST_POLICY" == "glance_image_tar" ]; then
                pa_log " Image is been downloaded from the glance"
                tar -xvf $TARGET -C $temp_dir
@@ -327,16 +309,18 @@ untar_file() {
 }
 
 
-verify_trust_policy_signature(){
-        if [ -n "$trust_policy_loc" ]; then   
+pa_verify_trustpolicy_signature(){
+        trust_policy=$1
+        if [ -n "$trust_policy" ]; then   
            #Call the Verifier Java snippet
-           tagent verify-trustpolicy-signature "$trust_policy_loc"
-           #/usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trust_policy_loc"
-           verifier_exit_status=$(echo $?)
+           tagent verify-trustpolicy-signature "$trust_policy"
+           #/usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trust_policy"
+           verifier_exit_status=$?
            pa_log "signature verfier exitCode: $verifier_exit_status"
            if [ $verifier_exit_status -eq 0 ]; then
                pa_log " Signature verification was successful"
                pa_log "policy agent will proceed to decrypt the image"
+			   cp $trust_policy $INSTANCE_DIR/"trustpolicy.xml"
            else
                pa_log "Signature verification was unsuccessful. VM launch process will be aborted"
                exit 1
@@ -360,7 +344,7 @@ parse_trust_policy(){
 }
 
 parse_args() {
-  if ! options=$(getopt -n policyagent -l project-id:,instance-name:,base-image:,image-id:,target:,instance_id:,mtwilson_trust_policy: -- "$@"); then exit 1; fi
+  if ! options=$(getopt -n policyagent -l project-id:,instance-name:,base-image:,image-id:,target:,instance_id:,mtwilson-trustpolicy-location: -- "$@"); then exit 1; fi
   eval set -- "$options"
   while [ $# -gt 0 ]
   do
@@ -371,7 +355,7 @@ parse_args() {
       --image-id) IMAGE_ID="$2"; shift;;
       --target) TARGET="$2"; shift;;
       --instance_id) INSTANCE_ID="$2";shift;;
-      --mtwilson_trust_policy) MTW_TRUST_POLICY="$2";shift;;
+      --mtwilson-trustpolicy-location) MTW_TRUST_POLICY="$2";shift;;
     esac
     shift
   done
@@ -379,11 +363,7 @@ parse_args() {
 
 generate_manifestlist(){
      cat $trust_policy_loc | xmlstarlet fo --noindent | sed -e 's/ xmlns.*=".*"//g' | xmlstarlet sel -t -c "/TrustPolicy/Whitelist" | xmlstarlet ed -u '/Whitelist/*' -v '' | xmlstarlet ed -r "Whitelist" -v "Manifest" |xmlstarlet ed -r "/Manifest/@DigestAlg" -v 'xmlns="mtwilson:trustdirector:manifest:1.1" DigestAlg'> $INSTANCE_DIR/manifestlist.xml
-     
-     #cat $INSTANCE_DIR/trustpolicy.xml >> $logfile
-     #cat $INSTANCE_DIR/manifestlist.xml >> $logfile
-     #ls -l $INSTANCE_DIR >> $logfile   
-}
+ }
 
 pa_launch() {
   pa_log "pa_launch: $@"
@@ -407,11 +387,12 @@ pa_launch() {
 	    pa_log "Found base image tar file: $TARGET"
           
 	   #untar the file to extract the vm image and trust policy
-	   untar_file $TARGET
+	   untar_file
+           pa_log "Untar func completed"
 	 
            #start TP Check the Encryption Tag, extract DEK and Checksum
             if [ -n "$trust_policy_loc" ]; then
-               verify_trust_policy_signature
+               pa_verify_trustpolicy_signature $trust_policy_loc
    
                #parse the trust policy to generate the manifest list
                generate_manifestlist
@@ -429,9 +410,8 @@ pa_launch() {
               pa_log "Checksum after decryption: $current_md5"
               if [ "$current_md5" != "$CHECKSUM" ]; then
                  pa_log "Error: checksum is $current_md5 but expected $CHECKSUM"
-                 #exit 1
-		 exit 0
-	      else
+                 exit 1
+		      else
 	          pa_log "image decryption completed"
               fi
            else
