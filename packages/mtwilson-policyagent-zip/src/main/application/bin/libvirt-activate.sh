@@ -1,4 +1,14 @@
-#/bin/sh
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:          libvirt-activate
+# Required-Start:    $local_fs $network $remote_fs
+# Required-Stop:     $local_fs $network $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: libvirt-activate
+# Description:       libvirt-activate
+### END INIT INFO
 
 # Ensure the script is loaded just after init scripts
 
