@@ -98,7 +98,9 @@ pa_decrypt() {
   export BINDING_KEY_PASSWORD=$(cat /opt/trustagent/configuration/trustagent.properties | grep binding.key.secret | cut -d = -f 2)  
   local decdir=$MOUNT_LOCATION/$IMAGE_ID/_base/
   decfile=$MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID
-
+  
+   
+   
   if [ ! -f $infile ]; then
      pa_log "error: failed to decrypt $infile: file not found"
      return 1
@@ -131,6 +133,10 @@ pa_decrypt() {
       #TODO: The size of the sparse file should be configurable
       pa_log "truncate -s 2G $DISK_LOCATION/$IMAGE_ID  "
       size_in_percentage=$(grep "sparsefile.size=" $configfile | cut -d "=" -f2)
+	  if [ -z "$size_in_percentage" ]; then
+	      #default sparse file size
+          size_in_percentage=50
+	   fi
       image_size=$(stat -c%s "$infile")
       pa_log " image size is: $image_size"
       if [ ! -z "$image_size" ] && [ ! -z "$size_in_percentage" ]; then

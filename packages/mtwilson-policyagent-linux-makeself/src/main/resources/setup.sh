@@ -151,6 +151,7 @@ load_policyagent_conf() {
     echo -n "Reading properties from file [$POLICYAGENT_PROPERTIES_FILE]....."
     export CONF_KMSPROXY_SERVER=$(read_property_from_file "kmsproxy.server" "$POLICYAGENT_PROPERTIES_FILE")
     export CONF_KMSPROXY_SERVER_PORT=$(read_property_from_file "kmsproxy.server.port" "$POLICYAGENT_PROPERTIES_FILE")
+	export CONF_SPARSEFILE_SIZE=$(read_property_from_file "sparsefile.size" "$POLICYAGENT_PROPERTIES_FILE")
     echo_success "Done"
   fi
 
@@ -160,9 +161,10 @@ load_policyagent_conf() {
 load_policyagent_defaults() {
   export DEFAULT_KMSPROXY_SERVER=""
   export DEFAULT_KMSPROXY_SERVER_PORT=""
-
+  export DEFAULT_SPARSEFILE_SIZE=50
   export KMSPROXY_SERVER=${KMSPROXY_SERVER:-${CONF_KMSPROXY_SERVER:-$DEFAULT_KMSPROXY_SERVER}}
   export KMSPROXY_SERVER_PORT=${KMSPROXY_SERVER_PORT:-${CONF_KMSPROXY_SERVER_PORT:-$DEFAULT_KMSPROXY_SERVER_PORT}}
+  export SPARSEFILE_SIZE=${SPARSEFILE_SIZE:-${CONF_SPARSEFILE_SIZE:-$DEFAULT_SPARSEFILE_SIZE}}
 }
 
 # load existing environment; set variables will take precendence
@@ -174,6 +176,8 @@ prompt_with_default KMSPROXY_SERVER "KMS Proxy Server:" "$KMSPROXY_SERVER"
 update_property_in_file "kmsproxy.server" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER"
 prompt_with_default KMSPROXY_SERVER_PORT "KMS Proxy Server Port:" "$KMSPROXY_SERVER_PORT"
 update_property_in_file "kmsproxy.server.port" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER_PORT"
+prompt_with_default SPARSEFILE_SIZE "Sparse File size (Enter a integer number):" "$SPARSEFILE_SIZE"
+update_property_in_file "sparsefile.size" "$POLICYAGENT_PROPERTIES_FILE" "$SPARSEFILE_SIZE"
 
 # make sure prerequisites are installed
 POLICYAGENT_YUM_PACKAGES="zip unzip xmlstarlet"
