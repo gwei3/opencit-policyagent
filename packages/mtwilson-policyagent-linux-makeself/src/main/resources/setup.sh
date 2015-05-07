@@ -151,7 +151,7 @@ load_policyagent_conf() {
     echo -n "Reading properties from file [$POLICYAGENT_PROPERTIES_FILE]....."
     export CONF_KMSPROXY_SERVER=$(read_property_from_file "kmsproxy.server" "$POLICYAGENT_PROPERTIES_FILE")
     export CONF_KMSPROXY_SERVER_PORT=$(read_property_from_file "kmsproxy.server.port" "$POLICYAGENT_PROPERTIES_FILE")
-	export CONF_SPARSEFILE_SIZE=$(read_property_from_file "sparsefile.size" "$POLICYAGENT_PROPERTIES_FILE")
+    export CONF_SPARSEFILE_SIZE=$(read_property_from_file "sparsefile.size" "$POLICYAGENT_PROPERTIES_FILE")
     echo_success "Done"
   fi
 
