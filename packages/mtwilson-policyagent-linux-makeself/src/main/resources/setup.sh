@@ -83,7 +83,8 @@ export POLICYAGENT_BIN=$POLICYAGENT_HOME/bin
 export POLICYAGENT_ENV=$POLICYAGENT_HOME/env
 
 policyagent_backup_configuration() {
-  if [ -n "$POLICYAGENT_CONFIGURATION" ] && [ -d "$POLICYAGENT_CONFIGURATION" ]; then
+  if [ -n "$POLICYAGENT_CONFIGURATION" ] && [ -d "$POLICYAGENT_CONFIGURATION" ] &&
+    (find "$POLICYAGENT_CONFIGURATION" -mindepth 1 -print -quit | grep -q .); then
     datestr=`date +%Y%m%d.%H%M`
     backupdir=/var/backup/policyagent.configuration.$datestr
     mkdir -p "$backupdir"
@@ -91,7 +92,8 @@ policyagent_backup_configuration() {
   fi
 }
 policyagent_backup_repository() {
-  if [ -n "$POLICYAGENT_REPOSITORY" ] && [ -d "$POLICYAGENT_REPOSITORY" ]; then
+  if [ -n "$POLICYAGENT_REPOSITORY" ] && [ -d "$POLICYAGENT_REPOSITORY" ] &&
+    (find "$POLICYAGENT_REPOSITORY" -mindepth 1 -print -quit | grep -q .); then
     datestr=`date +%Y%m%d.%H%M`
     backupdir=/var/backup/policyagent.repository.$datestr
     mkdir -p "$backupdir"
