@@ -106,12 +106,6 @@ mkdir -p /var/backup
 policyagent_backup_configuration
 policyagent_backup_repository
 
-if [ -d $POLICYAGENT_CONFIGURATION ]; then
-  backup_conf_dir=$POLICYAGENT_REPOSITORY/backup/configuration.$(date +"%Y%m%d.%H%M")
-  mkdir -p $backup_conf_dir
-  cp -R $POLICYAGENT_CONFIGURATION/* $backup_conf_dir
-fi
-
 # create application directories (chown will be repeated near end of this script, after setup)
 for directory in $POLICYAGENT_HOME $POLICYAGENT_CONFIGURATION $POLICYAGENT_ENV $POLICYAGENT_REPOSITORY $POLICYAGENT_LOGS $POLICYAGENT_BIN; do
   mkdir -p $directory
