@@ -83,7 +83,8 @@ export POLICYAGENT_BIN=$POLICYAGENT_HOME/bin
 export POLICYAGENT_ENV=$POLICYAGENT_HOME/env
 
 policyagent_backup_configuration() {
-  if [ -n "$POLICYAGENT_CONFIGURATION" ] && [ -d "$POLICYAGENT_CONFIGURATION" ]; then
+  if [ -n "$POLICYAGENT_CONFIGURATION" ] && [ -d "$POLICYAGENT_CONFIGURATION" ] &&
+    (find "$POLICYAGENT_CONFIGURATION" -mindepth 1 -print -quit | grep -q .); then
     datestr=`date +%Y%m%d.%H%M`
     backupdir=/var/backup/policyagent.configuration.$datestr
     mkdir -p "$backupdir"
@@ -91,7 +92,8 @@ policyagent_backup_configuration() {
   fi
 }
 policyagent_backup_repository() {
-  if [ -n "$POLICYAGENT_REPOSITORY" ] && [ -d "$POLICYAGENT_REPOSITORY" ]; then
+  if [ -n "$POLICYAGENT_REPOSITORY" ] && [ -d "$POLICYAGENT_REPOSITORY" ] &&
+    (find "$POLICYAGENT_REPOSITORY" -mindepth 1 -print -quit | grep -q .); then
     datestr=`date +%Y%m%d.%H%M`
     backupdir=/var/backup/policyagent.repository.$datestr
     mkdir -p "$backupdir"
@@ -103,12 +105,6 @@ policyagent_backup_repository() {
 mkdir -p /var/backup
 policyagent_backup_configuration
 policyagent_backup_repository
-
-if [ -d $POLICYAGENT_CONFIGURATION ]; then
-  backup_conf_dir=$POLICYAGENT_REPOSITORY/backup/configuration.$(date +"%Y%m%d.%H%M")
-  mkdir -p $backup_conf_dir
-  cp -R $POLICYAGENT_CONFIGURATION/* $backup_conf_dir
-fi
 
 # create application directories (chown will be repeated near end of this script, after setup)
 for directory in $POLICYAGENT_HOME $POLICYAGENT_CONFIGURATION $POLICYAGENT_ENV $POLICYAGENT_REPOSITORY $POLICYAGENT_LOGS $POLICYAGENT_BIN; do
