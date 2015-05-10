@@ -161,11 +161,11 @@ pa_decrypt() {
           #TODO: Keep track of loopback device numbers being used
            pa_log "Requires additional loop device for use"
            count_loop_dev=`ls -l /dev/loop* | wc -l`
-           if ["$count_loop_dev" > 8 ]; then
+           if [ "$count_loop_dev" > 8 ]; then
                pa_log "Create a new loop device for use"
 			   #Subtracting the count by 1 as there are 8 loop devices and 1 controller device
-               $count_loop_dev=$count_loop_dev-1
-               loop_dev=`mknod  -m 660 /dev/loop$count_loop_dev -b 7 $count_loop_dev`
+               $count=$count_loop_dev-1
+               loop_dev=`mknod  -m 660 /dev/loop$count b 7 $count`
            else
                pa_log "Unable to create additional loop device"
                exit 1
