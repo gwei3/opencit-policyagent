@@ -163,8 +163,8 @@ pa_decrypt() {
            count_loop_dev=`ls -l /dev/loop* | wc -l`
            if [ "$count_loop_dev" > 8 ]; then
                pa_log "Create a new loop device for use"
-			   #Subtracting the count by 1 as there are 8 loop devices and 1 controller device
-               $count=$count_loop_dev-1
+	      #Subtracting the count by 1 as there are 8 loop devices and 1 controller device
+               count=$(($count_loop_dev-1))
                loop_dev=`mknod  -m 660 /dev/loop$count b 7 $count`
            else
                pa_log "Unable to create additional loop device"
