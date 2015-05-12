@@ -322,7 +322,13 @@ pa_verify_trustpolicy_signature(){
         trust_policy=$1
         if [ -n "$trust_policy" ]; then   
            #Call the Verifier Java snippet
-           tagent verify-trustpolicy-signature "$trust_policy"
+           tagentScript="/usr/local/bin/tagent"
+           if [ ! -f "$tagentScript" ]; then
+             pa_log "Error: Missing tagent script";
+             echo "Missing tagent script";
+             exit 1
+           fi
+           $tagentScript verify-trustpolicy-signature "$trust_policy"
            #/usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trust_policy"
            verifier_exit_status=$?
            pa_log "signature verfier exitCode: $verifier_exit_status"
