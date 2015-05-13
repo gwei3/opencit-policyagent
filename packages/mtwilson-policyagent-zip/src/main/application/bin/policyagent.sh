@@ -129,7 +129,7 @@ pa_decrypt() {
   fi
  
    
-  if [ ! -d "$DISK_LOCATION/$IMAGE_ID" ]; then
+  if [ ! -e "$DISK_LOCATION/$IMAGE_ID" ]; then
       #TODO: The size of the sparse file should be configurable
       pa_log "truncate -s 2G $DISK_LOCATION/$IMAGE_ID  "
       size_in_percentage=$(grep "sparsefile.size=" $configfile | cut -d "=" -f2)
@@ -160,17 +160,12 @@ pa_decrypt() {
       if [ -z $loop_dev ]; then
           #TODO: Keep track of loopback device numbers being used
            pa_log "Requires additional loop device for use"
-           count_loop_dev=`ls -l /dev/loop* | wc -l`
-           if [ "$count_loop_dev" > 8 ]; then
-               pa_log "Create a new loop device for use"
-	      #Subtracting the count by 1 as there are 8 loop devices and 1 controller device
-               count=$(($count_loop_dev-1))
-               loop_dev=`mknod  -m 660 /dev/loop$count b 7 $count`
-           else
-               pa_log "Unable to create additional loop device"
-               exit 1
-           fi
-      elif [ ! -z "$loop_dev" ]; then
+           count=`ls -l /dev/loop[^-]* | wc -l`
+           pa_log "Create a new loop device for use"
+	   #Subtracting the count by 1 as there are 8 loop devices and 1 controller device
+           #count=$(($count_loop_dev))
+           loop_dev=`mknod  -m 660 /dev/loop$count b 7 $count`
+       elif [ ! -z "$loop_dev" ]; then
           pa_log "losetup $loop_dev $DISK_LOCATION/$IMAGE_ID"
           losetup $loop_dev $DISK_LOCATION/$IMAGE_ID
       else
@@ -204,14 +199,14 @@ pa_decrypt() {
 
 
      #MOUNT DEVICE OVER MOUNT LOCATION IDENTIFIED BY <IMAGE_UUID>
-     if [ -d "$MOUNT_LOCATION/$IMAGE_ID" ]; then
+     if [ -e "$MOUNT_LOCATION/$IMAGE_ID" ]; then
 	 pa_log "mount -t ext4 /dev/mapper/$IMAGE_ID $MOUNT_LOCATION/$IMAGE_ID"
          mount -t ext4 /dev/mapper/$IMAGE_ID $MOUNT_LOCATION/$IMAGE_ID
     else
         pa_log "Exit the policy agent"
         exit 1
     fi
-    #Delete
+  
   else
       pa_log "Sparse file for the current image id already exists: $DISK_LOCATION/$IMAGE_ID"
   fi
@@ -235,7 +230,7 @@ pa_decrypt() {
        export pa_dek_key=`/opt/trustagent/bin/tpm_unbindaeskey -k /opt/trustagent/configuration/bindingkey.blob -i $ENC_KEY_LOCATION/${IMAGE_ID}.key -q BINDING_KEY_PASSWORD -t -x  | openssl enc -base64`
        
        #export pa_dek_key=`cat $dek_base64`
-       cat $pa_dek_key >> $logfile
+       #cat $pa_dek_key >> $logfile
 	   pa_log "openssl enc -d -aes-128-ofb -in $infile -out $decfile -pass env:pa_dek_key"
        openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass env:pa_dek_key 2>> $logfile
        dek_status=$?
@@ -256,6 +251,7 @@ pa_decrypt() {
        ln -s -f $decfile $TARGET 2>> $logfile
        link_status=`echo $?`
        pa_log "Link_Status: $link_status"
+       
 	
 
        mv $INSTANCE_DIR $MOUNT_LOCATION/$IMAGE_ID/$INASTANCE_ID/
