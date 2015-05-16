@@ -85,6 +85,28 @@ pa_encrypt() {
   return 3
 }
 
+pa_delete_instance(){
+pa_log "Delete instance"
+ins_dir=$1
+pa_log "INSTANCE to be deleted: $ins_dir"
+instance_symlink=`readlink $ins_dir`
+sym_stat=$?
+pa_log "Found symlink stat: $sym_stat"
+
+pa_log "Deleting symlink: $instance_symlink"
+rm -rf $instance_symlink
+sym_dir_stat=$?
+pa_log "Deletion status: $sym_dir_stat"
+if [ $sym_dir_stat -eq 0 ]; then
+    unlink $ins_dir
+else
+   pa_log "There was an error deleting the $instance_symlink_target"
+   exit 1
+fi
+
+
+}
+
 pa_decrypt() {
   DISK_LOCATION=/var/lib/nova/instances/enc_disks
   MOUNT_LOCATION=/mnt/crypto/
@@ -165,7 +187,8 @@ pa_decrypt() {
 	   #Subtracting the count by 1 as there are 8 loop devices and 1 controller device
            #count=$(($count_loop_dev))
            loop_dev=`mknod  -m 660 /dev/loop$count b 7 $count`
-       elif [ ! -z "$loop_dev" ]; then
+      fi
+      if [ ! -z "$loop_dev" ]; then
           pa_log "losetup $loop_dev $DISK_LOCATION/$IMAGE_ID"
           losetup $loop_dev $DISK_LOCATION/$IMAGE_ID
       else
@@ -254,13 +277,16 @@ pa_decrypt() {
        
 	
 
-       mv $INSTANCE_DIR $MOUNT_LOCATION/$IMAGE_ID/$INASTANCE_ID/
+       mv $INSTANCE_DIR $MOUNT_LOCATION/$IMAGE_ID/$INASTANCE_ID/ 2>> $logfile
        check_status=$?
        pa_log "Move INSTANCE_DIR status: $check_status"
        if [ "$check_status" -eq 0 ]; then
-           ln -s -f $MOUNT_LOCATION/$IMAGE_ID/$INSTANCE_ID $INSTANCE_DIR
+           ln -s -f $MOUNT_LOCATION/$IMAGE_ID/$INSTANCE_ID $INSTANCE_DIR 2>> $logfile
        fi
       
+      ls -l $MOUNT_LOCATION/$IMAGE_ID/$INSTANCE_ID >> $logfile
+      pa_log "************"
+      ls -l $INSTANCE_DIR >> $logfile
       rm -rf $ENC_KEY_LOCATION/${IMAGE_ID}.dek
  
       return 0
@@ -521,7 +547,7 @@ pa_request_dek() {
           if [ ! -d $ENC_KEY_LOCATION ]; then
               mkdir $ENC_KEY_LOCATION
           fi
-         curl --proxy http://$kms_proxy_ipaddress:$kms_proxy_port --verbose -X POST -H "Content-Type: application/x-pem-file" -H "Accept: application/octet-stream" --data-binary @$aikdir/aik.pem  "$url" > "$ENC_KEY_LOCATION/${IMAGE_ID}.key"
+         curl --proxy http://$kms_proxy_ipaddress:$kms_proxy_port --verbose -X POST -H "Content-Type: application/x-pem-file" -H "Accept: application/octet-stream" --data-binary @$aikdir/aik.pem  "$url" > "$ENC_KEY_LOCATION/${IMAGE_ID}.key" 2>> $logfile
          
      else
           pa_log "failed to make a request to kms proxy. Could not find the proxy url"
@@ -563,6 +589,10 @@ case "$1" in
   launch)
     shift
     pa_launch $@
+    ;;
+  delete)
+    shift
+    pa_delete_instance $@
     ;;
   launch-check)
     shift

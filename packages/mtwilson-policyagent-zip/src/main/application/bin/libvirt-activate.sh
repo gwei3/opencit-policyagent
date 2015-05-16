@@ -13,6 +13,11 @@
 # Ensure the script is loaded just after init scripts
 
 logfile=/var/log/libvirt-activate.log
+whoami >> $logfile
+tcsd 2>> $logfile
+ps -ef | grep tcsd >> $logfile
+
+ls -la /opt/trustagent/bin/ >> $logfile 2>> $logfile
 
 DISK_LOCATION=/var/lib/nova/instances/enc_disks/
 ENC_KEY_LOCATION=/var/lib/nova/keys/
@@ -64,7 +69,7 @@ mount_enc_partitions() {
 		    echo "Error : Created device not visible"
 		fi
 		# cryptsetup luksFormat --keyfile=$DEK /dev/mapper/$IMAGE_ID
-		/opt/trustagent/bin/tpm_unbindaeskey -k /opt/trustagent/configuration/bindingkey.blob -i $ENC_KEY_LOCATION/${IMAGE_ID}.key -q BINDING_KEY_PASSWORD -t -x  | cryptsetup -v luksOpen --key-file=- $FREE_DEVICE $IMAGE_ID
+		/opt/trustagent/bin/tpm_unbindaeskey -k /opt/trustagent/configuration/bindingkey.blob -i $ENC_KEY_LOCATION/${IMAGE_ID}.key -q BINDING_KEY_PASSWORD -t -x  | cryptsetup -v luksOpen --key-file=- $FREE_DEVICE $IMAGE_ID 2>> $logfile
 		
 		# Delete the decrypted key
 		# Abhay : uncomment this : 
@@ -83,9 +88,11 @@ case "$1" in
 	echo "Start call received" >> $logfile
 	echo "==========================" >> $logfile
 	echo "Initial mounts ===========" >> $logfile
+        echo "******************************************" >> $logfile
 	mount >> $logfile
 	mount_enc_partitions
         echo "Final mounts ===========" >> $logfile
+        echo "******************************************" >> $logfile
         mount >> $logfile
    ;;
  stop)
