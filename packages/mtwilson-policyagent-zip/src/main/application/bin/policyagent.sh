@@ -157,7 +157,7 @@ pa_decrypt() {
       size_in_percentage=$(grep "sparsefile.size=" $configfile | cut -d "=" -f2)
 	  if [ -z "$size_in_percentage" ]; then
 	      #default sparse file size
-          size_in_percentage=50
+          size_in_percentage=500
 	   fi
       image_size=$(stat -c%s "$infile")
       pa_log " image size is: $image_size"
