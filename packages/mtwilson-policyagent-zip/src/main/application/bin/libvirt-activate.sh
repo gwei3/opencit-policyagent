@@ -90,7 +90,12 @@ case "$1" in
 	echo "Initial mounts ===========" >> $logfile
         echo "******************************************" >> $logfile
 	mount >> $logfile
-	mount_enc_partitions
+        if [ -d "$DISK_LOCATION" ] && [ -d "$ENC_KEY_LOCATION" ]; then
+	    mount_enc_partitions
+        else
+            echo "Cannot re mount the directories, enc_disk directories and encrypted keys does not exist" >> $logfile
+            exit 1
+        fi
         echo "Final mounts ===========" >> $logfile
         echo "******************************************" >> $logfile
         mount >> $logfile
