@@ -153,22 +153,40 @@ pa_decrypt() {
    
   if [ ! -e "$DISK_LOCATION/$IMAGE_ID" ]; then
       #TODO: The size of the sparse file should be configurable
-      pa_log "truncate -s 2G $DISK_LOCATION/$IMAGE_ID  "
-      size_in_percentage=$(grep "sparsefile.size=" $configfile | cut -d "=" -f2)
-	  if [ -z "$size_in_percentage" ]; then
+      #pa_log "truncate -s 2G $DISK_LOCATION/$IMAGE_ID  "
+      sparse_file_size=$(grep "sparsefile.size=" $configfile | cut -d "=" -f2)
+	  if [ -z "$sparse_file_size" ]; then
 	      #default sparse file size
-          size_in_percentage=500
+              sparse_file_size=`df -k / | tail -1 |awk {'print $4'}`
+          else
+              available_space=`df -k / | tail -1 |awk {'print $4'}`
+              if [ $sparse_file_size > $available_space ]; then
+                  pa_log "The size of the sparse file in the properties file exceeds the available disk size"
+                  pa_log "Allocating the available disk size to continue with the launch"
+                  sparse_file_size=`df -k / | tail -1 |awk {'print $4'}`
+              fi
 	   fi
-      image_size=$(stat -c%s "$infile")
-      pa_log " image size is: $image_size"
-      if [ ! -z "$image_size" ] && [ ! -z "$size_in_percentage" ]; then
-          size_in_bytes=$(($image_size*$size_in_percentage/100))
-          pa_log "Extra size in bytes: $size_in_bytes"
-          sparse_file_size=$(($image_size+$size_in_bytes))
-          pa_log "Sparse file size will be: $sparse_file_size"
-      else
-          pa_log "Please provide a valid integer number in the config file to specify the sparse file size"
+      #image_size=$(stat -c%s "$infile")
+      #pa_log " image size is: $image_size"
+      #if [ ! -z "$image_size" ] && [ ! -z "$sparse_file_size" ]; then
+      #    size_in_bytes=$(($image_size*$size_in_percentage/100))
+      #    pa_log "Extra size in bytes: $size_in_bytes"
+      #    sparse_file_size=$(($image_size+$size_in_bytes))
+      #    pa_log "Sparse file size will be: $sparse_file_size"
+      #else
+      #    pa_log "Please provide a valid integer number in the config file to specify the sparse file size"
+      #    exit 1
+      #fi
+      #avail_disk=`df -h / | tail -1 |awk {'print $4'}`
+      root_disk_size=$(($ROOT_DISK*1024*1024))
+      pa_log "==root disk size: $root_disk_size=="
+      pa_log "==sparse file size: $sparse_file_size=="
+      if [ $root_disk_size -gt $sparse_file_size ]; then
+          pa_log "The size of the root disk is more than the available disk size"
+          pa_log "Terminating the VM launch process"
           exit 1
+      else
+          pa_log "The available disk size is: $sparse_file_size"
       fi
       truncate -s $sparse_file_size $DISK_LOCATION/$IMAGE_ID  
       sparse_file_exit_status=$?
@@ -245,7 +263,7 @@ pa_decrypt() {
    ls -la $MOUNT_LOCATION >> $logfile
    ls -la $MOUNT_LOCATION/$IMAGE_ID/_base/ >> $logfile
      
-   if [ -n "$ENC_KEY_LOCATION/${IMAGE_ID}.key" ]; then
+   if [ -n "$ENC_KEY_LOCATION/${IMAGE_ID}.key" -a ! -f "$MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID"  ]; then
 	   pa_log "/opt/trustagent/bin/tpm_unbindaeskey -k $private_key -i $ENC_KEY_LOCATION/${IMAGE_ID}.key  -o $ENC_KEY_LOCATION/${IMAGE_ID}.dek -q BINDING_KEY_PASSWORD -t -x"
        #/opt/trustagent/bin/tpm_unbindaeskey -k $private_key -i "$ENC_KEY_LOCATION/${IMAGE_ID}.key"  -o "$ENC_KEY_LOCATION/${IMAGE_ID}.dek" -q BINDING_KEY_PASSWORD -t -x 2>> $logfile
     
@@ -300,6 +318,8 @@ pa_decrypt() {
 untar_file() {
     if [ -n "$TARGET" ]; then
         if [ -f $TARGET ]; then
+	pa_log "ls -latr $TARGET **********************"
+		ls -latr $TARGET >> $logfile
             local temp_dir=$TARGET"_temp"
             trust_policy_loc="${TARGET}.xml"
             if [ ! -d "$temp_dir" ]; then
@@ -327,6 +347,8 @@ untar_file() {
                    pa_log "failed to untar and copy the image successfully"
                    exit 1
                fi
+	pa_log "ls -latr $TARGET **********************"
+	ls -latr $TARGET >> $logfile
             else
                 # There will be other sources like swift to add later
                 pa_log "Image is not downloaded from the glance"
@@ -335,7 +357,8 @@ untar_file() {
     fi
 	
 	if [ -d "$temp_dir" ]; then
-	   rm -rf $temp_dir
+	echo "REMOVE THIS"
+	 #  rm -rf $temp_dir
 	fi
 }
 
@@ -381,7 +404,7 @@ parse_trust_policy(){
 }
 
 parse_args() {
-  if ! options=$(getopt -n policyagent -l project-id:,instance-name:,base-image:,image-id:,target:,instance_id:,mtwilson-trustpolicy-location: -- "$@"); then exit 1; fi
+  if ! options=$(getopt -n policyagent -l project-id:,instance-name:,base-image:,image-id:,target:,instance_id:,mtwilson-trustpolicy-location:,instance_type_root_gb: -- "$@"); then exit 1; fi
   eval set -- "$options"
   while [ $# -gt 0 ]
   do
@@ -393,6 +416,7 @@ parse_args() {
       --target) TARGET="$2"; shift;;
       --instance_id) INSTANCE_ID="$2";shift;;
       --mtwilson-trustpolicy-location) MTW_TRUST_POLICY="$2";shift;;
+      --instance_type_root_gb) ROOT_DISK="$2";shift;;
     esac
     shift
   done
@@ -416,6 +440,7 @@ pa_launch() {
   pa_log "MTW_TRUST_POLICY: $MTW_TRUST_POLICY"
   INSTANCE_DIR=$INSTANCE_DIR/$INSTANCE_ID
   pa_log "INSTANCE_DIR: $INSTANCE_DIR"
+  pa_log "ROOT_DISK: $ROOT_DISK"
 
   
   
