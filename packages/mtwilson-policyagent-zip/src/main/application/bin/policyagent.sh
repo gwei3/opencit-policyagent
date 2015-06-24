@@ -128,6 +128,7 @@ pa_decrypt() {
      return 1
   fi
   
+  ls -la $infile >> $logfile
   if ! openssl_encrypted_file $infile; then
      pa_log "error: failed to decrypt $infile: not encrypted";
      return 1
@@ -152,59 +153,47 @@ pa_decrypt() {
  
    
   if [ ! -e "$DISK_LOCATION/$IMAGE_ID" ]; then
-      #TODO: The size of the sparse file should be configurable
-      #pa_log "truncate -s 2G $DISK_LOCATION/$IMAGE_ID  "
       sparse_file_size=$(grep "sparsefile.size=" $configfile | cut -d "=" -f2)
 	  if [ -z "$sparse_file_size" ]; then
-	      #default sparse file size
+	      #sparse file size will be obtained in KB
               sparse_file_size=`df -k / | tail -1 |awk {'print $4'}`
           else
               available_space=`df -k / | tail -1 |awk {'print $4'}`
-              if [ $sparse_file_size > $available_space ]; then
+              if [ "$sparse_file_size" -gt "$available_space" ]; then
                   pa_log "The size of the sparse file in the properties file exceeds the available disk size"
                   pa_log "Allocating the available disk size to continue with the launch"
                   sparse_file_size=`df -k / | tail -1 |awk {'print $4'}`
               fi
 	   fi
-      #image_size=$(stat -c%s "$infile")
-      #pa_log " image size is: $image_size"
-      #if [ ! -z "$image_size" ] && [ ! -z "$sparse_file_size" ]; then
-      #    size_in_bytes=$(($image_size*$size_in_percentage/100))
-      #    pa_log "Extra size in bytes: $size_in_bytes"
-      #    sparse_file_size=$(($image_size+$size_in_bytes))
-      #    pa_log "Sparse file size will be: $sparse_file_size"
-      #else
-      #    pa_log "Please provide a valid integer number in the config file to specify the sparse file size"
-      #    exit 1
-      #fi
+      
       #avail_disk=`df -h / | tail -1 |awk {'print $4'}`
-      root_disk_size=$(($ROOT_DISK*1024*1024))
+      #root disk size converted from GB to KB
+	  root_disk_size=$(($ROOT_DISK*1024*1024))
       pa_log "==root disk size: $root_disk_size=="
       pa_log "==sparse file size: $sparse_file_size=="
-      if [ $root_disk_size -gt $sparse_file_size ]; then
-          pa_log "The size of the root disk is more than the available disk size"
-          pa_log "Terminating the VM launch process"
-          exit 1
+      if [ "$root_disk_size" -gt "$sparse_file_size" ]; then
+          pa_log "WARNING:The size of the root disk exceeds the allocated sparse file size"
+          pa_log "Copying a file larger than the size of the sparse file on the launched VM might cause failure"
       else
           pa_log "The available disk size is: $sparse_file_size"
       fi
-      truncate -s $sparse_file_size $DISK_LOCATION/$IMAGE_ID  
+      size_in_bytes=$(($sparse_file_size*1024))
+	  pa_log "Size allocated for the Sparse file is: $size_in_bytes bytes"
+      truncate -s $size_in_bytes $DISK_LOCATION/$IMAGE_ID  
       sparse_file_exit_status=$?
       pa_log "The sparse file creation status: $sparse_file_exit_status"      
 
 
       loop_dev=`losetup --find`
       loopdev_exit_status=$?
-      pa_log "Loop_dev: $loop_dev"
       pa_log "The loopdev  status: $loopdev_exit_status"
       if [ -z $loop_dev ]; then
           #TODO: Keep track of loopback device numbers being used
            pa_log "Requires additional loop device for use"
            count=`ls -l /dev/loop[^-]* | wc -l`
            pa_log "Create a new loop device for use"
-	   #Subtracting the count by 1 as there are 8 loop devices and 1 controller device
-           #count=$(($count_loop_dev))
-           loop_dev=`mknod  -m 660 /dev/loop$count b 7 $count`
+	       add_dev=`mknod  -m 660 /dev/loop$count b 7 $count`
+		   loop_dev=`losetup --find`
       fi
       if [ ! -z "$loop_dev" ]; then
           pa_log "losetup $loop_dev $DISK_LOCATION/$IMAGE_ID"
@@ -214,15 +203,8 @@ pa_decrypt() {
            exit 1
       fi
       
-      losetup --find >> $logfile 2>> $logfile
-    
-      #open the dm-crypt device with password
-      #tpm_unbindaeskey –k /opt/trustagent/configuration/bindingkey.blob –i $ENC_KEY_LOCATION/$image_ID.key –q BINDING_KEY_PASSWORD –t -x | openssl enc -base64 cmd  | cryptsetup luksOpen –-key-file=-  $loop_dev $IMAGE_ID
-
-    #Delete this later 
-      #/opt/trustagent/bin/tpm_unbindaeskey -k $private_key -i "$ENC_KEY_LOCATION/${IMAGE_ID}.key"  -o "$ENC_KEY_LOCATION/${IMAGE_ID}.dek" -q BINDING_KEY_PASSWORD -t -x 2>> $logfile
-     
-      pa_log "loopback device: $loop_dev"
+         
+      pa_log "Available loopback device: $loop_dev"
 
       pa_log "cryptsetup -v luksFormat --key-file="$ENC_KEY_LOCATION/${IMAGE_ID}.dek" $loop_dev"
       /opt/trustagent/bin/tpm_unbindaeskey -k /opt/trustagent/configuration/bindingkey.blob -i $ENC_KEY_LOCATION/${IMAGE_ID}.key -q BINDING_KEY_PASSWORD -t -x | cryptsetup -v --batch-mode luksFormat --key-file=- $loop_dev 2>> $logfile
@@ -234,15 +216,14 @@ pa_decrypt() {
       luksOpen_status=$?
       pa_log "luksOpen : $luksOpen_status"
 
-      pa_log "mkfs.ext4 /dev/mapper/$IMAGE_ID"
-      #FORMAT ENCRYPTED DEVICE WITH EXT4 FILE SYSTEM
-      mkfs.ext4 /dev/mapper/$IMAGE_ID
-
+      pa_log "mkfs.ext4 -v /dev/mapper/$IMAGE_ID"
+      mkfs.ext4 -v  /dev/mapper/$IMAGE_ID
+     
 
      #MOUNT DEVICE OVER MOUNT LOCATION IDENTIFIED BY <IMAGE_UUID>
      if [ -e "$MOUNT_LOCATION/$IMAGE_ID" ]; then
-	 pa_log "mount -t ext4 /dev/mapper/$IMAGE_ID $MOUNT_LOCATION/$IMAGE_ID"
-         mount -t ext4 /dev/mapper/$IMAGE_ID $MOUNT_LOCATION/$IMAGE_ID
+         pa_log "mount -t ext4 /dev/mapper/$IMAGE_ID $MOUNT_LOCATION/$IMAGE_ID"
+         mount -t ext4 /dev/mapper/$IMAGE_ID $MOUNT_LOCATION/$IMAGE_ID    
     else
         pa_log "Exit the policy agent"
         exit 1
@@ -258,20 +239,19 @@ pa_decrypt() {
   else
       pa_log "mount location _base dir already exits: $MOUNT_LOCATION/$IMAGE_ID/_base/"
   fi
-  #VM-enc
+  
   
    ls -la $MOUNT_LOCATION >> $logfile
    ls -la $MOUNT_LOCATION/$IMAGE_ID/_base/ >> $logfile
      
    if [ -n "$ENC_KEY_LOCATION/${IMAGE_ID}.key" -a ! -f "$MOUNT_LOCATION/$IMAGE_ID/_base/$IMAGE_ID"  ]; then
 	   pa_log "/opt/trustagent/bin/tpm_unbindaeskey -k $private_key -i $ENC_KEY_LOCATION/${IMAGE_ID}.key  -o $ENC_KEY_LOCATION/${IMAGE_ID}.dek -q BINDING_KEY_PASSWORD -t -x"
-       #/opt/trustagent/bin/tpm_unbindaeskey -k $private_key -i "$ENC_KEY_LOCATION/${IMAGE_ID}.key"  -o "$ENC_KEY_LOCATION/${IMAGE_ID}.dek" -q BINDING_KEY_PASSWORD -t -x 2>> $logfile
+       
     
 	   pa_log "openssl enc -base64 -in $ENC_KEY_LOCATION/${IMAGE_ID}.dek -out $dek_base64"
        export pa_dek_key=`/opt/trustagent/bin/tpm_unbindaeskey -k /opt/trustagent/configuration/bindingkey.blob -i $ENC_KEY_LOCATION/${IMAGE_ID}.key -q BINDING_KEY_PASSWORD -t -x  | openssl enc -base64`
        
-       #export pa_dek_key=`cat $dek_base64`
-       #cat $pa_dek_key >> $logfile
+       
 	   pa_log "openssl enc -d -aes-128-ofb -in $infile -out $decfile -pass env:pa_dek_key"
        openssl enc -d -aes-128-ofb -in "$infile" -out "$decfile" -pass env:pa_dek_key 2>> $logfile
        dek_status=$?
@@ -283,8 +263,6 @@ pa_decrypt() {
    if ! openssl_encrypted_file $decfile; then
       if [ -n "$IMAGE_ID" ]; then
           pa_log "Decrypted image: $IMAGE_ID"
-          # XXX DEBUG for debugging only - 
-          #cp $decfile /tmp/image.dec
       fi
 
       
@@ -335,10 +313,10 @@ untar_file() {
                tar -xvf $TARGET -C $temp_dir
                #ls -l $temp_dir >> $logfile
                mv $temp_dir/*.xml $trust_policy_loc
-			   cp $trust_policy_loc $INSTANCE_DIR/"trustpolicy.xml"
+	       cp $trust_policy_loc $INSTANCE_DIR/"trustpolicy.xml"
                pa_log "trust policy location: $trust_policy_loc"
                pa_log "*******************************************"
-               image_path=`find $temp_dir -name '*.[img|vhd|raw]*'`
+               image_path=`find $temp_dir -name '*.[img|vhd|raw|qcow2]*'`
                pa_log "image location: $image_path"
                pa_log "*******************************************"
                if [ -n $image_path ]; then
@@ -357,8 +335,8 @@ untar_file() {
     fi
 	
 	if [ -d "$temp_dir" ]; then
-	echo "REMOVE THIS"
-	 #  rm -rf $temp_dir
+	   echo "REMOVE THIS"
+	   #rm -rf $temp_dir
 	fi
 }
 
@@ -373,6 +351,7 @@ pa_verify_trustpolicy_signature(){
              echo "Missing tagent script";
              exit 1
            fi
+           pa_log "$tagentScript verify-trustpolicy-signature $trust_policy"
            $tagentScript verify-trustpolicy-signature "$trust_policy"
            #/usr/bin/java -classpath  "$verifierJavaLoc" "$javaClassName" "$trust_policy"
            verifier_exit_status=$?
@@ -451,7 +430,11 @@ pa_launch() {
 	   #untar the file to extract the vm image and trust policy
 	   untar_file
            pa_log "Untar func completed"
-	 
+           pa_log "Before sleep"
+           cat $trust_policy_loc >> $logfile
+           pa_log "After sleep"
+           cat $trust_policy_loc >> $logfile
+
            #start TP Check the Encryption Tag, extract DEK and Checksum
             if [ -n "$trust_policy_loc" ]; then
                pa_verify_trustpolicy_signature $trust_policy_loc
@@ -474,7 +457,7 @@ pa_launch() {
                  pa_log "Error: checksum is $current_md5 but expected $CHECKSUM"
                  exit 1
 		      else
-	          pa_log "image decryption completed"
+	          pa_log "image decryption completed for $TARGET"
               fi
            else
                pa_log "The image is not encrypted"
