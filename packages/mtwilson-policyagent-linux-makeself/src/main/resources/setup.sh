@@ -172,7 +172,7 @@ prompt_with_default KMSPROXY_SERVER "KMS Proxy Server:" "$KMSPROXY_SERVER"
 update_property_in_file "kmsproxy.server" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER"
 prompt_with_default KMSPROXY_SERVER_PORT "KMS Proxy Server Port:" "$KMSPROXY_SERVER_PORT"
 update_property_in_file "kmsproxy.server.port" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER_PORT"
-prompt_with_default SPARSEFILE_SIZE "Sparse File size (Enter a integer number):" "$SPARSEFILE_SIZE"
+#prompt_with_default SPARSEFILE_SIZE "Sparse File size (Enter a integer number):" "$SPARSEFILE_SIZE"
 update_property_in_file "sparsefile.size" "$POLICYAGENT_PROPERTIES_FILE" "$SPARSEFILE_SIZE"
 
 # make sure prerequisites are installed
