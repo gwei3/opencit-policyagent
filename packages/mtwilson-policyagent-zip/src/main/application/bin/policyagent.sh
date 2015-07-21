@@ -1,4 +1,95 @@
 #!/bin/bash
+
+# chkconfig: 2345 80 30
+# description: Intel Policy Agent Service
+
+### BEGIN INIT INFO
+# Provides:          policyagent
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Should-Start:      $portmap
+# Should-Stop:       $portmap
+# X-Start-Before:    nis
+# X-Stop-After:      nis
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# X-Interactive:     true
+# Short-Description: policyagent
+# Description:       Main script to run policyagent commands
+### END INIT INFO
+DESC="POLICYAGENT"
+NAME=policyagent
+
+# the home directory must be defined before we load any environment or
+# configuration files; it is explicitly passed through the sudo command
+export POLICYAGENT_HOME=${POLICYAGENT_HOME:-/opt/policyagent}
+
+# the env directory is not configurable; it is defined as POLICYAGENT_HOME/env
+# and the administrator may use a symlink if necessary to place it anywhere else
+export POLICYAGENT_ENV=$POLICYAGENT_HOME/env
+
+policyagent_load_env() {
+  local env_files="$@"
+  local env_file_exports
+  for env_file in $env_files; do
+    if [ -n "$env_file" ] && [ -f "$env_file" ]; then
+      . $env_file
+      env_file_exports=$(cat $env_file | grep -E '^[A-Z0-9_]+\s*=' | cut -d = -f 1)
+      if [ -n "$env_file_exports" ]; then eval export $env_file_exports; fi
+    fi
+  done  
+}
+
+if [ -z "$POLICYAGENT_USERNAME" ]; then
+  policyagent_load_env $POLICYAGENT_HOME/env/policyagent-username
+fi
+
+###################################################################################################
+
+## if non-root execution is specified, and we are currently root, start over; the POLICYAGENT_SUDO variable limits this to one
+## attempt we make an exception for the uninstall command, which may require root access to delete users and certain directories
+#if [ -n "$POLICYAGENT_USERNAME" ] && [ "$POLICYAGENT_USERNAME" != "root" ] && [ $(whoami) == "root" ] && [ -z "$POLICYAGENT_SUDO" ] && [ "$1" != "uninstall" ]; then
+#  sudo -u $POLICYAGENT_USERNAME POLICYAGENT_USERNAME=$POLICYAGENT_USERNAME POLICYAGENT_HOME=$POLICYAGENT_HOME POLICYAGENT_PASSWORD=$POLICYAGENT_PASSWORD POLICYAGENT_SUDO=true policyagent $*
+#  exit $?
+#fi
+
+###################################################################################################
+
+# load environment variables; these may override the defaults set above and also
+# note that policyagent-username file is loaded twice, once before sudo and once
+# here after sudo.
+if [ -d $POLICYAGENT_ENV ]; then
+  policyagent_load_env $(ls -1 $POLICYAGENT_ENV/*)
+fi
+
+# default directory layout follows the 'home' style
+export POLICYAGENT_CONFIGURATION=${POLICYAGENT_CONFIGURATION:-${POLICYAGENT_CONF:-$POLICYAGENT_HOME/configuration}}
+export POLICYAGENT_BIN=${POLICYAGENT_BIN:-$POLICYAGENT_HOME/bin}
+export POLICYAGENT_REPOSITORY=${POLICYAGENT_REPOSITORY:-$POLICYAGENT_HOME/repository}
+export POLICYAGENT_LOGS=${POLICYAGENT_LOGS:-$POLICYAGENT_HOME/logs}
+
+###################################################################################################
+
+
+# load linux utility
+if [ -f "$POLICYAGENT_HOME/bin/functions.sh" ]; then
+  . $POLICYAGENT_HOME/bin/functions.sh
+fi
+
+###################################################################################################
+
+# the standard PID file location /var/run is typically owned by root;
+# if we are running as non-root and the standard location isn't writable 
+# then we need a different place
+POLICYAGENT_PID_FILE=${POLICYAGENT_PID_FILE:-/var/run/policyagent.pid}
+if [ ! -w "$POLICYAGENT_PID_FILE" ] && [ ! -w $(dirname "$POLICYAGENT_PID_FILE") ]; then
+  POLICYAGENT_PID_FILE=$POLICYAGENT_REPOSITORY/policyagent.pid
+fi
+
+###################################################################################################
+
+
+
 logfile=/var/log/policyagent.log
 configfile=/opt/policyagent/configuration/policyagent.properties
 INSTANCE_DIR=/var/lib/nova/instances/
@@ -577,6 +668,18 @@ pa_request_dek() {
 
 }
 
+pa_uninstall() {
+  remove_startup_script libvirt-activate
+  rm -f "/usr/local/bin/policyagent" 2>/dev/null
+  rm -f "/usr/local/bin/libvirt-activate" 2>/dev/null
+  if [ -d "${POLICYAGENT_HOME}" ]; then
+    rm -rf "${POLICYAGENT_HOME}" 2>/dev/null
+  fi
+  #groupdel policyagent > /dev/null 2>&1
+  #userdel policyagent > /dev/null 2>&1
+  echo_success "policy agent uninstall complete"
+}
+
 pa_log "Num args: $#"
 pa_log "Running as `whoami`"
 pa_log "$@"
@@ -644,6 +747,9 @@ case "$1" in
     shift
     pa_request_dek $@
     ;;
+  uninstall)
+    shift
+    pa_uninstall $@
   #fix-aik)
   #  shift
   #  pa_fix_aik $@
