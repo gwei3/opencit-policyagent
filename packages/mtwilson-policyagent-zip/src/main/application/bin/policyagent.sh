@@ -750,6 +750,7 @@ case "$1" in
   uninstall)
     shift
     pa_uninstall $@
+    ;;
   #fix-aik)
   #  shift
   #  pa_fix_aik $@
