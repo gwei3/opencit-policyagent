@@ -247,13 +247,13 @@ pa_decrypt() {
       sparse_file_size=$(grep "sparsefile.size=" $configfile | cut -d "=" -f2)
 	  if [ -z "$sparse_file_size" ]; then
 	      #sparse file size will be obtained in KB
-              sparse_file_size=`df -k / | tail -1 |awk {'print $4'}`
+              sparse_file_size=$(df -k / | sed -n '1!p' | tail -2 | sed ':a;N;$!ba;s/\n/ /g' | awk {'print $4'}) #remove first line|grab last 2 lines|remove newline|get 4th arg
           else
-              available_space=`df -k / | tail -1 |awk {'print $4'}`
+              available_space=$(df -k / | sed -n '1!p' | tail -2 | sed ':a;N;$!ba;s/\n/ /g' | awk {'print $4'}) #remove first line|grab last 2 lines|remove newline|get 4th arg
               if [ "$sparse_file_size" -gt "$available_space" ]; then
                   pa_log "The size of the sparse file in the properties file exceeds the available disk size"
                   pa_log "Allocating the available disk size to continue with the launch"
-                  sparse_file_size=`df -k / | tail -1 |awk {'print $4'}`
+                  sparse_file_size=$(df -k / | sed -n '1!p' | tail -2 | sed ':a;N;$!ba;s/\n/ /g' | awk {'print $4'}) #remove first line|grab last 2 lines|remove newline|get 4th arg
               fi
 	   fi
       
