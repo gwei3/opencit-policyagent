@@ -9,6 +9,7 @@
     
     <modules>
         <module>mtwilson-policyagent-linux-makeself</module>
+        <module>mtwilson-policyagent-with-encryption-linux-makeself</module>
         <module>mtwilson-policyagent-zip</module>
         <!--<module>policyagent-javadoc</module>-->
         <!--commenting out policyagent-javadoc due to this error:
