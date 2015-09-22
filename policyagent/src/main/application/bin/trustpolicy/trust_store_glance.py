@@ -1,6 +1,6 @@
 import os, shutil
 import logging
-import commons.pa_utils as pa_utils
+import commons.utils as utils
 
 class TrustPolicyStore:
 
@@ -10,14 +10,13 @@ class TrustPolicyStore:
     def getPolicy(self, image_id, pa_config):
         try:
             instances_dir = pa_config['INSTANCES_DIR']
-            
             tarfile = os.path.join(instances_dir.strip(), '_base', image_id)
             dest = tarfile + '_temp'
             if not os.path.exists(tarfile):
-                self.log.error("tarfile not exists")
-                raise Exception("tarfile not exists")
+                self.log.error("Image " + tarfile + " doesnot exists..")
+                raise Exception("Image " + tarfile + " doesnot exists..")
             st = os.stat(tarfile)
-            if pa_utils.untar(tarfile, dest):
+            if utils.untar(tarfile, dest):
                 self.log.debug("tarfile extracted ")
                 trust_policy = None
                 img_type=['img','vhd','raw','qcow2']
@@ -35,11 +34,11 @@ class TrustPolicyStore:
             else:
                 trust_policy = tarfile + '.xml'
                 if not os.path.exists(trust_policy):
-                    self.log.error("tarfile not exists")
-                    raise Exception("tarfile not exists")
+                    self.log.error(tarfile + ".xml" + " not exists")
+                    raise Exception(tarfile + ".xml" + " not exists")
                     #Throw error
                     #pass
                 return trust_policy
         except Exception as e:
-            self.log.exception("Failed while get policy : "+str(e.message))
+            self.log.exception("Failed while requesting policy : "+ str(e.message))
             raise e
