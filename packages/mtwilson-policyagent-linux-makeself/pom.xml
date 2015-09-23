@@ -21,7 +21,7 @@
   
     <dependencies>
         <dependency>
-            <groupId>com.intel.mtwilson.policyagent.packages</groupId>
+            <groupId>com.intel.mtwilson.policyagent</groupId>
             <artifactId>mtwilson-policyagent-zip</artifactId>
             <version>0.1-SNAPSHOT</version>
             <type>zip</type>
