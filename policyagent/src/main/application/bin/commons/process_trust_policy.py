@@ -31,11 +31,14 @@ class ProcessTrustpolicyXML(object):
     def retrieve_chksm(self):
         try:
             chksum_dct = {}
-            dek_url = self.root.find('Encryption').find('Key').text
-            checksum = self.root.find('Encryption').find('Checksum').text
-            chksum_dct['DEK_URL'] = dek_url
-            chksum_dct['CHECKSUM'] = checksum
-            return chksum_dct
+            if self.root.find('Encryption') is not None:
+                dek_url = self.root.find('Encryption').find('Key').text
+                checksum = self.root.find('Encryption').find('Checksum').text
+                chksum_dct['DEK_URL'] = dek_url
+                chksum_dct['CHECKSUM'] = checksum
+                return chksum_dct
+            else:
+               return None
         except Exception as e:
             self.log_obj.exception('Error in retrieving decryption key and checksum from XML.')
             raise e
