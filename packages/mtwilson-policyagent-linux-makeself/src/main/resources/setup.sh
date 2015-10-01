@@ -131,11 +131,9 @@ do
 done
 
 POLICYAGENT_PROPERTIES_FILE=${POLICYAGENT_PROPERTIES_FILE:-"$POLICYAGENT_CONFIGURATION/policyagent.properties"}
-#touch "$POLICYAGENT_PROPERTIES_FILE"
-#chmod 600 "$POLICYAGENT_PROPERTIES_FILE"
-LIBVIRT_ACTIVATE_LOG_FILE=${LIBVIRT_ACTIVATE_LOG_FILE:-"/var/log/libvirt-activate.log"}
-touch "$LIBVIRT_ACTIVATE_LOG_FILE"
-chmod 600 "$LIBVIRT_ACTIVATE_LOG_FILE"
+POLICYAGENT_INIT_LOG_FILE=${POLICYAGENT_INIT_LOG_FILE:-"/var/log/policyagent-init.log"}
+touch "$POLICYAGENT_INIT_LOG_FILE"
+chmod 600 "$POLICYAGENT_INIT_LOG_FILE"
 
 # previous configuration loading
 load_policyagent_conf() {
@@ -184,23 +182,23 @@ cp $UTIL_SCRIPT_FILE $POLICYAGENT_HOME/bin/functions.sh
 # set permissions
 find $POLICYAGENT_HOME/bin/ -type f -exec chmod 644 {} \;
 find $POLICYAGENT_HOME/bin/ -type d -exec chmod 755 {} \;
-#chmod 755 $POLICYAGENT_HOME/bin/*
 
 # policyagent
 policyagentBin=`which policyagent 2>/dev/null`
 if [ -n "$policyagentBin" ]; then
   rm -f "$policyagentBin"
 fi
-ln -s "$POLICYAGENT_HOME/bin/policyagent.sh" "/usr/local/bin/policyagent"
+ln -s "$POLICYAGENT_HOME/bin/policyagent.py" "/usr/local/bin/policyagent"
 
-# libvirt-activate
-libvirtActivate=`which libvirt-activate 2>/dev/null`
-if [ -n "$libvirtActivate" ]; then
-  rm -f "$libvirtActivate"
+# policyagent-init
+policyagent_init=`which policyagent-init 2>/dev/null`
+if [ -n "$policyagent_init" ]; then
+  rm -f "$policyagent_init"
+  remove_startup_script policyagent-init
 fi
-ln -s "$POLICYAGENT_HOME/bin/libvirt-activate.sh" "/usr/local/bin/libvirt-activate"
+ln -s "$POLICYAGENT_HOME/bin/policyagent-init" "/usr/local/bin/policyagent-init"
 
-register_startup_script /usr/local/bin/libvirt-activate libvirt-activate
+register_startup_script /usr/local/bin/policyagent-init policyagent-init
 
 # delete the temporary setup environment variables file
 rm -f $POLICYAGENT_ENV/policyagent-setup
