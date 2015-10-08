@@ -646,9 +646,21 @@ pa_request_dek() {
           if [ ! -d $ENC_KEY_LOCATION ]; then
               mkdir $ENC_KEY_LOCATION
           fi
-         curl --proxy http://$kms_proxy_ipaddress:$kms_proxy_port --verbose -X POST -H "Content-Type: application/x-pem-file" -H "Accept: application/octet-stream" --data-binary @$aikdir/aik.pem  "$url" > "$ENC_KEY_LOCATION/${IMAGE_ID}.key" 2>> $logfile
-         
-     else
+          curl --proxy http://$kms_proxy_ipaddress:$kms_proxy_port --verbose -X POST -H "Content-Type: application/x-pem-file" -H "Accept: application/octet-stream" --data-binary @$aikdir/aik.pem  "$url" > "/tmp/${IMAGE_ID}.key" 2>> $logfile
+          
+          cat /tmp/${IMAGE_ID}.key | grep "<html>"
+          if [ $? -eq 0 ]; then
+            pa_log "Not able to receive key from KMS: received HTML error"
+            exit 1
+          fi
+          cat /tmp/${IMAGE_ID}.key | grep "401"
+          if [ $? -eq 0 ]; then
+            pa_log "Not able to receive key from KMS: 401 error"
+            exit 1
+          fi
+          
+          cp /tmp/${IMAGE_ID}.key $ENC_KEY_LOCATION/${IMAGE_ID}.key
+      else
           pa_log "failed to make a request to kms proxy. Could not find the proxy url"
           exit 1
       fi
