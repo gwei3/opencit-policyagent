@@ -180,7 +180,7 @@ unzip -oq $POLICYAGENT_ZIPFILE -d $POLICYAGENT_HOME
 cp $UTIL_SCRIPT_FILE $POLICYAGENT_HOME/bin/functions.sh
 
 # set permissions
-find $POLICYAGENT_HOME/bin/ -type f -exec chmod 644 {} \;
+find $POLICYAGENT_HOME/bin/ -type f -exec chmod 744 {} \;
 find $POLICYAGENT_HOME/bin/ -type d -exec chmod 755 {} \;
 
 # policyagent
