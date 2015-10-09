@@ -131,8 +131,8 @@ do
 done
 
 POLICYAGENT_PROPERTIES_FILE=${POLICYAGENT_PROPERTIES_FILE:-"$POLICYAGENT_CONFIGURATION/policyagent.properties"}
-touch "$POLICYAGENT_PROPERTIES_FILE"
-chmod 600 "$POLICYAGENT_PROPERTIES_FILE"
+#touch "$POLICYAGENT_PROPERTIES_FILE"
+#chmod 600 "$POLICYAGENT_PROPERTIES_FILE"
 LIBVIRT_ACTIVATE_LOG_FILE=${LIBVIRT_ACTIVATE_LOG_FILE:-"/var/log/libvirt-activate.log"}
 touch "$LIBVIRT_ACTIVATE_LOG_FILE"
 chmod 600 "$LIBVIRT_ACTIVATE_LOG_FILE"
@@ -192,7 +192,9 @@ unzip -oq $POLICYAGENT_ZIPFILE -d $POLICYAGENT_HOME
 cp $UTIL_SCRIPT_FILE $POLICYAGENT_HOME/bin/functions.sh
 
 # set permissions
-chmod 755 $POLICYAGENT_HOME/bin/*
+find $POLICYAGENT_HOME/bin/ -type f -exec chmod 644 {} \;
+find $POLICYAGENT_HOME/bin/ -type d -exec chmod 755 {} \;
+#chmod 755 $POLICYAGENT_HOME/bin/*
 
 # policyagent
 policyagentBin=`which policyagent 2>/dev/null`
