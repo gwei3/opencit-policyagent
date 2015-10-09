@@ -64,7 +64,7 @@ def untar(src, dest):
             LOG.debug("Tar file extracted ")
             return True
         else:
-            LOG.error("Given file " + src + " not a tarfile!")
+            LOG.debug("Given file " + src + " not a tarfile!")
             return False
     except Exception as e:
         raise Exception("Failed to extract tar file!")
