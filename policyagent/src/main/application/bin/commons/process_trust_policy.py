@@ -44,9 +44,9 @@ class ProcessTrustpolicyXML(object):
             raise e
 
     def generate_manifestlist_xml(self, instance_dir):
-        new_manifest_file_path = os.path.join(instance_dir, 'manifestlist.xml')
+        new_manifest_file_path = os.path.join(instance_dir, 'manifest.xml')
         element = builder.ElementMaker()
-        xml_root = element.Whitelist
+        xml_root = element.Manifest
         xml_dir = element.Dir
         xml_file = element.File
         #xml_text = element.Text
