@@ -42,7 +42,9 @@ def launch(args):
                                      instance_dir = instance_dir, root_disk_size_gb = args['root_disk_size_gb'],\
                                      instance_id = args['instance_id'], config = config)
                         decfile = crypt.decrypt()
+                        LOG.debug("Expected md5sum : " + encryption_element['CHECKSUM'])
                         current_md5 = utils.generate_md5(decfile)
+                        LOG.debug("Current md5sum : " + current_md5)
                         if current_md5 != encryption_element['CHECKSUM']:
                             LOG.exception("checksum mismatch")
                             raise Exception("checksum mismatch")
