@@ -131,9 +131,6 @@ do
 done
 
 POLICYAGENT_PROPERTIES_FILE=${POLICYAGENT_PROPERTIES_FILE:-"$POLICYAGENT_CONFIGURATION/policyagent.properties"}
-POLICYAGENT_INIT_LOG_FILE=${POLICYAGENT_INIT_LOG_FILE:-"/var/log/policyagent-init.log"}
-touch "$POLICYAGENT_INIT_LOG_FILE"
-chmod 600 "$POLICYAGENT_INIT_LOG_FILE"
 
 # previous configuration loading
 load_policyagent_conf() {
@@ -141,33 +138,33 @@ load_policyagent_conf() {
   if [ -n "$DEFAULT_ENV_LOADED" ]; then return; fi
 
   # policyagent.properties file
-  if [ -f "$POLICYAGENT_PROPERTIES_FILE" ]; then
-    echo -n "Reading properties from file [$POLICYAGENT_PROPERTIES_FILE]....."
-    export CONF_SPARSEFILE_SIZE=$(read_property_from_file "sparsefile.size" "$POLICYAGENT_PROPERTIES_FILE")
-    echo_success "Done"
-  fi
+  #if [ -f "$POLICYAGENT_PROPERTIES_FILE" ]; then
+  #  echo -n "Reading properties from file [$POLICYAGENT_PROPERTIES_FILE]....."
+  #  export CONF_SPARSEFILE_SIZE=$(read_property_from_file "SPARSE_FILE_SIZE" "$POLICYAGENT_PROPERTIES_FILE")
+  #  echo_success "Done"
+  #fi
 
   export DEFAULT_ENV_LOADED=true
   return 0
 }
-load_policyagent_defaults() {
-  export DEFAULT_SPARSEFILE_SIZE=""
-  export SPARSEFILE_SIZE=${SPARSEFILE_SIZE:-${CONF_SPARSEFILE_SIZE:-$DEFAULT_SPARSEFILE_SIZE}}
-}
+#load_policyagent_defaults() {
+#  export DEFAULT_SPARSEFILE_SIZE=""
+#  export SPARSEFILE_SIZE=${SPARSEFILE_SIZE:-${CONF_SPARSEFILE_SIZE:-$DEFAULT_SPARSEFILE_SIZE}}
+#}
 
 # load existing environment; set variables will take precendence
 load_policyagent_conf
-load_policyagent_defaults
+#load_policyagent_defaults
 
 # required properties
 #prompt_with_default SPARSEFILE_SIZE "Sparse File size (Enter a integer number):" "$SPARSEFILE_SIZE"
-update_property_in_file "sparsefile.size" "$POLICYAGENT_PROPERTIES_FILE" "$SPARSEFILE_SIZE"
+#update_property_in_file "sparsefile.size" "$POLICYAGENT_PROPERTIES_FILE" "$SPARSEFILE_SIZE"
 
 # make sure prerequisites are installed
-POLICYAGENT_YUM_PACKAGES="zip unzip xmlstarlet"
-POLICYAGENT_APT_PACKAGES="zip unzip xmlstarlet"
-POLICYAGENT_YAST_PACKAGES="zip unzip xmlstarlet"
-POLICYAGENT_ZYPPER_PACKAGES="zip unzip xmlstarlet"
+POLICYAGENT_YUM_PACKAGES="zip unzip xmlstarlet python-lxml"
+POLICYAGENT_APT_PACKAGES="zip unzip xmlstarlet python-lxml"
+POLICYAGENT_YAST_PACKAGES="zip unzip xmlstarlet python-lxml"
+POLICYAGENT_ZYPPER_PACKAGES="zip unzip xmlstarlet python-lxml"
 auto_install "Installer requirements" "POLICYAGENT"
 if [ $? -ne 0 ]; then echo_failure "Failed to install prerequisites through package installer"; exit -1; fi
 
@@ -191,14 +188,14 @@ fi
 ln -s "$POLICYAGENT_HOME/bin/policyagent.py" "/usr/local/bin/policyagent"
 
 # policyagent-init
-policyagent_init=`which policyagent-init 2>/dev/null`
-if [ -n "$policyagent_init" ]; then
-  rm -f "$policyagent_init"
-  remove_startup_script policyagent-init
-fi
-ln -s "$POLICYAGENT_HOME/bin/policyagent-init" "/usr/local/bin/policyagent-init"
+#policyagent_init=`which policyagent-init 2>/dev/null`
+#if [ -n "$policyagent_init" ]; then
+#  rm -f "$policyagent_init"
+#  remove_startup_script policyagent-init
+#fi
+#ln -s "$POLICYAGENT_HOME/bin/policyagent-init" "/usr/local/bin/policyagent-init"
 
-register_startup_script /usr/local/bin/policyagent-init policyagent-init
+#register_startup_script /usr/local/bin/policyagent-init policyagent-init
 
 # delete the temporary setup environment variables file
 rm -f $POLICYAGENT_ENV/policyagent-setup

@@ -47,18 +47,12 @@ class ProcessTrustpolicyXML(object):
         new_manifest_file_path = os.path.join(instance_dir, 'manifest.xml')
         element = builder.ElementMaker()
         xml_root = element.Manifest
-        xml_dir = element.Dir
-        xml_file = element.File
-        #xml_text = element.Text
         try:
             for node in self.root.iter('Whitelist'):
                 attr_val = node.attrib.get('DigestAlg')
             new_xml = xml_root(DigestAlg=attr_val)
             for child in self.root.find('Whitelist'):
-                if child.tag == 'Dir':
-                    new_xml.append(xml_dir(Path=child.attrib['Path']))
-                else:
-                    new_xml.append(xml_file(Path=child.attrib['Path']))
+                new_xml.append(child)
 
             xml = ET.tostring(new_xml, pretty_print=True)
             #formatted_xml = "".join(xml.split())

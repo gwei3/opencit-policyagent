@@ -131,11 +131,9 @@ do
 done
 
 POLICYAGENT_PROPERTIES_FILE=${POLICYAGENT_PROPERTIES_FILE:-"$POLICYAGENT_CONFIGURATION/policyagent.properties"}
-#touch "$POLICYAGENT_PROPERTIES_FILE"
-#chmod 600 "$POLICYAGENT_PROPERTIES_FILE"
-LIBVIRT_ACTIVATE_LOG_FILE=${LIBVIRT_ACTIVATE_LOG_FILE:-"/var/log/libvirt-activate.log"}
-touch "$LIBVIRT_ACTIVATE_LOG_FILE"
-chmod 600 "$LIBVIRT_ACTIVATE_LOG_FILE"
+POLICYAGENT_INIT_LOG_FILE=${POLICYAGENT_INIT_LOG_FILE:-"/var/log/policyagent-init.log"}
+touch "$POLICYAGENT_INIT_LOG_FILE"
+chmod 600 "$POLICYAGENT_INIT_LOG_FILE"
 
 # previous configuration loading
 load_policyagent_conf() {
@@ -145,9 +143,9 @@ load_policyagent_conf() {
   # policyagent.properties file
   if [ -f "$POLICYAGENT_PROPERTIES_FILE" ]; then
     echo -n "Reading properties from file [$POLICYAGENT_PROPERTIES_FILE]....."
-    export CONF_KMSPROXY_SERVER=$(read_property_from_file "kmsproxy.server" "$POLICYAGENT_PROPERTIES_FILE")
-    export CONF_KMSPROXY_SERVER_PORT=$(read_property_from_file "kmsproxy.server.port" "$POLICYAGENT_PROPERTIES_FILE")
-    export CONF_SPARSEFILE_SIZE=$(read_property_from_file "sparsefile.size" "$POLICYAGENT_PROPERTIES_FILE")
+    export CONF_KMSPROXY_SERVER=$(read_property_from_file "KMS_PROXY_SERVER" "$POLICYAGENT_PROPERTIES_FILE")
+    export CONF_KMSPROXY_SERVER_PORT=$(read_property_from_file "KMS_PROXY_SERVER_PORT" "$POLICYAGENT_PROPERTIES_FILE")
+    export CONF_SPARSEFILE_SIZE=$(read_property_from_file "SPARSE_FILE_SIZE" "$POLICYAGENT_PROPERTIES_FILE")
     echo_success "Done"
   fi
 
@@ -167,19 +165,11 @@ load_policyagent_defaults() {
 load_policyagent_conf
 load_policyagent_defaults
 
-# required properties
-prompt_with_default KMSPROXY_SERVER "KMS Proxy Server:" "$KMSPROXY_SERVER"
-update_property_in_file "kmsproxy.server" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER"
-prompt_with_default KMSPROXY_SERVER_PORT "KMS Proxy Server Port:" "$KMSPROXY_SERVER_PORT"
-update_property_in_file "kmsproxy.server.port" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER_PORT"
-#prompt_with_default SPARSEFILE_SIZE "Sparse File size (Enter a integer number):" "$SPARSEFILE_SIZE"
-update_property_in_file "sparsefile.size" "$POLICYAGENT_PROPERTIES_FILE" "$SPARSEFILE_SIZE"
-
 # make sure prerequisites are installed
-POLICYAGENT_YUM_PACKAGES="zip unzip xmlstarlet"
-POLICYAGENT_APT_PACKAGES="zip unzip xmlstarlet"
-POLICYAGENT_YAST_PACKAGES="zip unzip xmlstarlet"
-POLICYAGENT_ZYPPER_PACKAGES="zip unzip xmlstarlet"
+POLICYAGENT_YUM_PACKAGES="zip unzip xmlstarlet python-lxml"
+POLICYAGENT_APT_PACKAGES="zip unzip xmlstarlet python-lxml"
+POLICYAGENT_YAST_PACKAGES="zip unzip xmlstarlet python-lxml"
+POLICYAGENT_ZYPPER_PACKAGES="zip unzip xmlstarlet python-lxml"
 auto_install "Installer requirements" "POLICYAGENT"
 if [ $? -ne 0 ]; then echo_failure "Failed to install prerequisites through package installer"; exit -1; fi
 
@@ -188,29 +178,37 @@ echo "Extracting application..."
 POLICYAGENT_ZIPFILE=`ls -1 mtwilson-policyagent-*.zip 2>/dev/null | head -n 1`
 unzip -oq $POLICYAGENT_ZIPFILE -d $POLICYAGENT_HOME
 
+# required properties
+prompt_with_default KMSPROXY_SERVER "KMS Proxy Server:" "$KMSPROXY_SERVER"
+update_property_in_file "KMS_PROXY_SERVER" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER"
+prompt_with_default KMSPROXY_SERVER_PORT "KMS Proxy Server Port:" "$KMSPROXY_SERVER_PORT"
+update_property_in_file "KMS_PROXY_SERVER_PORT" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER_PORT"
+#prompt_with_default SPARSEFILE_SIZE "Sparse File size (Enter a integer number):" "$SPARSEFILE_SIZE"
+#update_property_in_file "sparsefile.size" "$POLICYAGENT_PROPERTIES_FILE" "$SPARSEFILE_SIZE"
+
 # copy utilities script file to application folder
 cp $UTIL_SCRIPT_FILE $POLICYAGENT_HOME/bin/functions.sh
 
 # set permissions
-find $POLICYAGENT_HOME/bin/ -type f -exec chmod 644 {} \;
+find $POLICYAGENT_HOME/bin/ -type f -exec chmod 744 {} \;
 find $POLICYAGENT_HOME/bin/ -type d -exec chmod 755 {} \;
-#chmod 755 $POLICYAGENT_HOME/bin/*
 
 # policyagent
 policyagentBin=`which policyagent 2>/dev/null`
 if [ -n "$policyagentBin" ]; then
   rm -f "$policyagentBin"
 fi
-ln -s "$POLICYAGENT_HOME/bin/policyagent.sh" "/usr/local/bin/policyagent"
+ln -s "$POLICYAGENT_HOME/bin/policyagent.py" "/usr/local/bin/policyagent"
 
-# libvirt-activate
-libvirtActivate=`which libvirt-activate 2>/dev/null`
-if [ -n "$libvirtActivate" ]; then
-  rm -f "$libvirtActivate"
+# policyagent-init
+policyagent_init=`which policyagent-init 2>/dev/null`
+if [ -n "$policyagent_init" ]; then
+  rm -f "$policyagent_init"
+  remove_startup_script policyagent-init
 fi
-ln -s "$POLICYAGENT_HOME/bin/libvirt-activate.sh" "/usr/local/bin/libvirt-activate"
+ln -s "$POLICYAGENT_HOME/bin/policyagent-init" "/usr/local/bin/policyagent-init"
 
-register_startup_script /usr/local/bin/libvirt-activate libvirt-activate
+register_startup_script /usr/local/bin/policyagent-init policyagent-init
 
 # delete the temporary setup environment variables file
 rm -f $POLICYAGENT_ENV/policyagent-setup
