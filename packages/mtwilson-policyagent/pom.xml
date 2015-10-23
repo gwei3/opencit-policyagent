@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     
     <groupId>com.intel.mtwilson.policyagent.packages</groupId>
-    <artifactId>mtwilson-policyagent-linux-makeself</artifactId>
+    <artifactId>mtwilson-policyagent</artifactId>
     <version>0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <description>Self-extracting executable that installs the Mtwilson Policy Agent</description>
@@ -16,12 +16,12 @@
   
     <properties>
         <!-- this becomes the installer filename, like ${makeself.name}.bin -->
-        <makeself.name>mtwilson-policyagent-${project.version}</makeself.name>
+        <makeself.name>${project.artifactId}-${project.version}</makeself.name>
     </properties>
   
     <dependencies>
         <dependency>
-            <groupId>com.intel.mtwilson.policyagent.packages</groupId>
+            <groupId>com.intel.mtwilson.policyagent</groupId>
             <artifactId>mtwilson-policyagent-zip</artifactId>
             <version>0.1-SNAPSHOT</version>
             <type>zip</type>
