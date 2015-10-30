@@ -52,6 +52,7 @@ class ProcessTrustpolicyXML(object):
                 attr_val = node.attrib.get('DigestAlg')
             new_xml = xml_root(DigestAlg=attr_val)
             for child in self.root.find('Whitelist'):
+                child.text=None
                 new_xml.append(child)
 
             xml = ET.tostring(new_xml, pretty_print=True)
@@ -61,7 +62,7 @@ class ProcessTrustpolicyXML(object):
                 f.write(xml)
             return new_manifest_file_path
         except Exception as e:
-            self.log_obj.exception('Error in creating manifest_list xml file.')
+            self.log_obj.exception('Error in creating manifest xml file.')
             raise e
 
     def verify_trust_policy_signature(self, tagent_location, policy_location):
