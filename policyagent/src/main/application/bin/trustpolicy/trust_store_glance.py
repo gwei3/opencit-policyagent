@@ -25,6 +25,7 @@ class TrustPolicyStore:
                         trust_policy = tarfile + '.xml'
                         src = os.path.join(dest, f)
                         shutil.copy(src, trust_policy)
+                        os.chmod(trust_policy, 0644)
                     if any(x in f for x in img_type):
                         src = os.path.join(dest, f)
                         shutil.move(src, tarfile)
