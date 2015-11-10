@@ -76,6 +76,9 @@ class Crypt(object):
                 else:
                     LOG.error("Failed to get the key " + key + " from the Key server.")
                     raise Exception("Failed to get the " + key + " from the Key server.")
+            else:
+                LOG.error("KMS configuration is not set in properties file.")
+                raise Exception("KMS configuration is not set in properties file.")
         except Exception as e:
             LOG.exception("Failed while requesting key " + key + " from KMS :" + str(e.message))
             raise e

@@ -71,7 +71,7 @@ def untar(src, dest):
 
 def create_subprocess(command, stdin = None):
     try:
-        poutput = Popen(command, stdin = stdin, stdout = PIPE)
+        poutput = Popen(command, stdin = stdin, stdout = PIPE, stderr = PIPE)
         LOG.debug("Executing command : " + str(command))
         return poutput
     except Exception as e:
@@ -84,6 +84,7 @@ def call_subprocess(poutput):
         if poutput.returncode == 0:
             return output[0].strip()
         else:
+            LOG.error(output)
             raise Exception("Command failed!")
     except Exception as e:
         LOG.exception("Command failed!")
