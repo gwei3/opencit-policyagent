@@ -19,8 +19,36 @@
 # 15. copy utilities script file to application folder
 # 16. set additional permissions
 # 17. link /usr/local/bin/policyagent -> /opt/policyagent/bin/policyagent, if not already there
-
+# 18. SELinux policy update in case of RHEL system
 #####
+
+
+function getFlavour()
+{
+        flavour=""
+        grep -c -i ubuntu /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="ubuntu"
+        fi
+        grep -c -i "red hat" /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="rhel"
+        fi
+        grep -c -i fedora /etc/*-release > /dev/null
+        if [ $? -eq 0 ] && [ $flavour == "" ] ; then
+                flavour="fedora"
+        fi
+        grep -c -i suse /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="suse"
+        fi
+        if [ "$flavour" == "" ] ; then
+                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
+                exit
+        else
+                echo $flavour
+        fi
+}
 
 # default settings
 # note the layout setting is used only by this script
@@ -223,5 +251,17 @@ register_startup_script /usr/local/bin/policyagent-init policyagent-init
 
 # delete the temporary setup environment variables file
 rm -f $POLICYAGENT_ENV/policyagent-setup
+
+FLAVOUR=`getFlavour`
+
+#SELinux policy change update for RHEL
+if [ $FLAVOUR == "rhel" ] ; then
+    POLICYAGENT_CONFIG=$POLICYAGENT_HOME/configuration/
+
+    /usr/bin/checkmodule -M -m -o $POLICYAGENT_CONFIG/policyagent.mod $POLICYAGENT_CONFIG/policyagent.te
+    /usr/bin/semodule_package -o $POLICYAGENT_CONFIG/policyagent.pp -m $POLICYAGENT_CONFIG/policyagent.mod
+    /usr/sbin/semodule -i $POLICYAGENT_CONFIG/policyagent.pp
+    rm -f $POLICYAGENT_CONFIG/policyagent.mod $POLICYAGENT_CONFIG/policyagent.pp
+fi
 
 echo_success "policy agent installation complete"
