@@ -58,14 +58,14 @@ class Crypt(object):
 
     # Function to request key to KMS
     def __kms_request_key(self, aik_dir, key):
-        LOG.debug("kms proxy ip address :" + self.pa_config['KMS_PROXY_SERVER'])
-        LOG.debug("kms jetty port :" + self.pa_config['KMS_PROXY_SERVER_PORT'])
+        LOG.debug("kms proxy ip address :" + self.pa_config['KMSPROXY_SERVER'])
+        LOG.debug("kms jetty port :" + self.pa_config['KMSPROXY_SERVER_PORT'])
         try:
-            if len(self.pa_config['KMS_PROXY_SERVER_PORT']) and len(self.pa_config['KMS_PROXY_SERVER']):
+            if len(self.pa_config['KMSPROXY_SERVER_PORT']) and len(self.pa_config['KMSPROXY_SERVER']):
                 if not os.path.isdir(self.pa_config['ENC_KEY_LOCATION']):
                     LOG.debug("Creating directory :" + self.pa_config['ENC_KEY_LOCATION'])
                     os.mkdir(self.pa_config['ENC_KEY_LOCATION'])
-                proxies = {'http': 'http://' + self.pa_config['KMS_PROXY_SERVER'] + ':' + self.pa_config['KMS_PROXY_SERVER_PORT']}
+                proxies = {'http': 'http://' + self.pa_config['KMSPROXY_SERVER'] + ':' + self.pa_config['KMSPROXY_SERVER_PORT']}
                 headers = {'Content-Type': 'application/x-pem-file', 'Accept': 'application/octet-stream'}
                 with open(aik_dir + Crypt.AIK_PEM, 'rb') as f:
                     r = requests.post(self.dek_url, headers = headers, data = f,  proxies = proxies)

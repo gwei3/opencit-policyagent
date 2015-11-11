@@ -12,9 +12,9 @@
 # 8. store directory layout in env file
 # 9. create the policyagent.properties file
 # 10. load previous configuration if applicable; current installation settings override
-# 11. check if KMS_PROXY exists and is responding; warn otherwise
-# 12. install prerequisites
-# 13. prompt for installation variables if they are not provided
+# 11. install prerequisites
+# 12. check if KMSPROXY exists and is responding; warn otherwise
+# 13. update configuration with variables
 # 14. unzip policyagent archive policyagent-zip-0.1-SNAPSHOT.zip into /opt/policyagent, overwrite if any files already exist
 # 15. copy utilities script file to application folder
 # 16. set additional permissions
@@ -144,8 +144,8 @@ load_policyagent_conf() {
   # policyagent.properties file
   if [ -f "$POLICYAGENT_PROPERTIES_FILE" ]; then
     echo -n "Reading properties from file [$POLICYAGENT_PROPERTIES_FILE]....."
-    export CONF_KMSPROXY_SERVER=$(read_property_from_file "KMS_PROXY_SERVER" "$POLICYAGENT_PROPERTIES_FILE")
-    export CONF_KMSPROXY_SERVER_PORT=$(read_property_from_file "KMS_PROXY_SERVER_PORT" "$POLICYAGENT_PROPERTIES_FILE")
+    export CONF_KMSPROXY_SERVER=$(read_property_from_file "KMSPROXY_SERVER" "$POLICYAGENT_PROPERTIES_FILE")
+    export CONF_KMSPROXY_SERVER_PORT=$(read_property_from_file "KMSPROXY_SERVER_PORT" "$POLICYAGENT_PROPERTIES_FILE")
     export CONF_SPARSEFILE_SIZE=$(read_property_from_file "SPARSE_FILE_SIZE" "$POLICYAGENT_PROPERTIES_FILE")
     echo_success "Done"
   fi
@@ -168,21 +168,11 @@ load_policyagent_defaults
 
 ## required properties
 #prompt_with_default KMSPROXY_SERVER "KMS Proxy Server:" "$KMSPROXY_SERVER"
-#update_property_in_file "KMS_PROXY_SERVER" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER"
+#update_property_in_file "KMSPROXY_SERVER" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER"
 #prompt_with_default KMSPROXY_SERVER_PORT "KMS Proxy Server Port:" "$KMSPROXY_SERVER_PORT"
-#update_property_in_file "KMS_PROXY_SERVER_PORT" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER_PORT"
+#update_property_in_file "KMSPROXY_SERVER_PORT" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER_PORT"
 ##prompt_with_default SPARSEFILE_SIZE "Sparse File size (Enter a integer number):" "$SPARSEFILE_SIZE"
 ##update_property_in_file "sparsefile.size" "$POLICYAGENT_PROPERTIES_FILE" "$SPARSEFILE_SIZE"
-
-# check if KMS_PROXY exists and is responding; warn otherwise
-if [ -n "$KMS_PROXY_SERVER" ] && [ -n "$KMS_PROXY_SERVER_PORT" ]; then
-  kmsProxyOutput=$(curl -ks "http://${KMS_PROXY_SERVER}:${KMS_PROXY_SERVER_PORT}/v1/keys/1/transfer")
-  if [[ $kmsProxyOutput != *"javax.ws.rs.NotAllowedException"* ]]; then
-    echo_warning "kmsproxy is not available or is configured incorrectly"
-  fi
-fi
-update_property_in_file "KMS_PROXY_SERVER" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER"
-update_property_in_file "KMS_PROXY_SERVER_PORT" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER_PORT"
 
 # make sure prerequisites are installed
 POLICYAGENT_YUM_PACKAGES="zip unzip xmlstarlet python-lxml"
@@ -196,6 +186,16 @@ if [ $? -ne 0 ]; then echo_failure "Failed to install prerequisites through pack
 echo "Extracting application..."
 POLICYAGENT_ZIPFILE=`ls -1 mtwilson-policyagent-*.zip 2>/dev/null | head -n 1`
 unzip -oq $POLICYAGENT_ZIPFILE -d $POLICYAGENT_HOME
+
+# check if KMSPROXY exists and is responding; warn otherwise
+if [ -n "$KMSPROXY_SERVER" ] && [ -n "$KMSPROXY_SERVER_PORT" ]; then
+  kmsProxyOutput=$(curl -ks "http://${KMSPROXY_SERVER}:${KMSPROXY_SERVER_PORT}/v1/keys/1/transfer")
+  if [[ $kmsProxyOutput != *"javax.ws.rs.NotAllowedException"* ]]; then
+    echo_warning "kmsproxy is not available or is configured incorrectly"
+  fi
+fi
+update_property_in_file "KMSPROXY_SERVER" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER"
+update_property_in_file "KMSPROXY_SERVER_PORT" "$POLICYAGENT_PROPERTIES_FILE" "$KMSPROXY_SERVER_PORT"
 
 # copy utilities script file to application folder
 cp $UTIL_SCRIPT_FILE $POLICYAGENT_HOME/bin/functions.sh
