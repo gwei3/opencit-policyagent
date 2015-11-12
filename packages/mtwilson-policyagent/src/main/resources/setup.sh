@@ -217,7 +217,7 @@ unzip -oq $POLICYAGENT_ZIPFILE -d $POLICYAGENT_HOME
 
 # check if KMSPROXY exists and is responding; warn otherwise
 if [ -n "$KMSPROXY_SERVER" ] && [ -n "$KMSPROXY_SERVER_PORT" ]; then
-  kmsProxyOutput=$(curl -ks "http://${KMSPROXY_SERVER}:${KMSPROXY_SERVER_PORT}/v1/keys/1/transfer")
+  kmsProxyOutput=$(curl --noproxy "*" -ks "http://${KMSPROXY_SERVER}:${KMSPROXY_SERVER_PORT}/v1/keys/1/transfer")
   if [[ $kmsProxyOutput != *"javax.ws.rs.NotAllowedException"* ]]; then
     echo_warning "kmsproxy is not available or is configured incorrectly"
   fi
