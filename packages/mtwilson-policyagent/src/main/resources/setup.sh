@@ -23,7 +23,7 @@
 #####
 
 
-function getFlavour()
+function getFlavourPolicyagent()
 {
         flavour=""
         grep -c -i ubuntu /etc/*-release > /dev/null
@@ -252,7 +252,7 @@ register_startup_script /usr/local/bin/policyagent-init policyagent-init
 # delete the temporary setup environment variables file
 rm -f $POLICYAGENT_ENV/policyagent-setup
 
-FLAVOUR=`getFlavour`
+FLAVOUR=`getFlavourPolicyagent`
 
 #SELinux policy change update for RHEL
 if [ $FLAVOUR == "rhel" ] ; then
