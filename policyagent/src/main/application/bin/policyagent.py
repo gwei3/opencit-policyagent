@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
 import argparse
+from distutils.spawn import find_executable as which
 import os
+from platform import linux_distribution as flavour
 import shutil
 
 config = None
@@ -12,8 +14,11 @@ import logging.config as logging_config
 
 MODULE_NAME = 'policyagent'
 POLICY_AGENT_PROPERTIES_FILE = '/opt/policyagent/configuration/policyagent.properties'
+INIT_DIR='/etc/init.d'
+STARTUP_SCRIPT_NAME='policyagent-init'
+PA_HOME='/opt/policyagent'
 
-def version(args):
+def version():
     LOG.info('policyagent-0.1')
 
 def launch(args):
@@ -79,6 +84,35 @@ def init_config():
     global config
     config = prop_parser.create_property_dict(POLICY_AGENT_PROPERTIES_FILE)
 
+def uninstall():
+    pa_init = which(STARTUP_SCRIPT_NAME)
+    if flavour()[0] == 'Ubuntu':
+        cmd = which('update-rc.d')
+        update_rc_d = utils.create_subprocess([cmd, '-f', pa_init, 'remove'])
+        utils.call_subprocess(update_rc_d)
+        if update_rc_d.returncode != 0:
+            LOG.error("Failed to execute update-rc.d command. Exit code = " + str(update_rc_d.returncode))
+            raise Exception("Failed to remove statrup script")
+
+    if flavour()[0] == 'Red Hat Enterprise Linux Server':
+        cmd = which('chkconfig')
+        chkconfig = utils.create_subprocess([cmd, '--del', pa_init])
+        utils.call_subprocess(chkconfig)
+        if chkconfig.returncode != 0:
+            LOG.error("Failed to execute chkconfig command. Exit code = " + str(chkconfig.returncode))
+            raise Exception("Failed to remove startup script")
+
+    if os.path.exists(INIT_DIR) and os.path.isdir(INIT_DIR):
+        STARTUP_SCRIPT=os.path.join(INIT_DIR, STARTUP_SCRIPT_NAME)
+        LOG.debug("Removing startup script : " + STARTUP_SCRIPT)
+        os.remove(STARTUP_SCRIPT)
+
+    os.remove(pa_init)
+    pa = which(MODULE_NAME)
+    os.remove(pa)
+    if os.path.exists(PA_HOME) and os.path.isdir(PA_HOME):
+        shutil.rmtree(PA_HOME)
+
 # execute only if imported as module
 if __name__ == "__main__":
     from commons.parse import ParseProperty
@@ -106,8 +140,15 @@ if __name__ == "__main__":
         delete_parser = subparsers.add_parser("delete")
         delete_parser.add_argument("instance_path")
         delete_parser.set_defaults(func = delete)
+        uninstall_parser = subparsers.add_parser("uninstall")
+        uninstall_parser.set_defaults(func = uninstall)
         args = parser.parse_args()
-        args.func(vars(args))
+        dict_args = vars(args)
+        dict_len = len(dict_args)
+        if dict_len > 1:
+            args.func(dict_args)
+        else:
+            args.func()
     except Exception as e:
         LOG.exception("Failed while executing policyagent..")
         raise e
