@@ -113,6 +113,14 @@ def uninstall():
     if os.path.exists(PA_HOME) and os.path.isdir(PA_HOME):
         shutil.rmtree(PA_HOME)
 
+    if flavour()[0] == 'Red Hat Enterprise Linux Server':
+        semodule = utils.create_subprocess(['semodule', '-r', 'policyagent'])
+        utils.call_subprocess(semodule)
+        if semodule.returncode != 0:
+            LOG.error("Failed to execute semodule command. Exit code = " + str(semodule.returncode))
+            raise Exception("Failed to remove selinux policy")
+
+
 # execute only if imported as module
 if __name__ == "__main__":
     from commons.parse import ParseProperty
