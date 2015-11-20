@@ -22,7 +22,7 @@ class TrustPolicyStore:
                 img_type=['img','vhd','raw','qcow2']
                 for f in os.listdir(dest):
                     if f.endswith(".xml"):
-                        trust_policy = tarfile + '.xml'
+                        trust_policy = tarfile + '.trustpolicy.xml'
                         src = os.path.join(dest, f)
                         shutil.copy(src, trust_policy)
                         os.chmod(trust_policy, 0644)
@@ -33,7 +33,7 @@ class TrustPolicyStore:
                 shutil.rmtree(dest)
                 return trust_policy
             else:
-                trust_policy = tarfile + '.xml'
+                trust_policy = tarfile + '.trustpolicy.xml'
                 if not os.path.exists(trust_policy):
                     self.log.error(tarfile + ".xml" + " not exists")
                     raise Exception(tarfile + ".xml" + " not exists")
