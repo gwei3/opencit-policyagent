@@ -233,7 +233,7 @@ class Crypt(object):
                     if os.path.islink(image_link):
                         LOG.debug("Removing image link " + image_link + "and " + image_link + Crypt.XML_EXTN)
                         os.unlink(image_link)
-                        os.remove(image_link + Crypt.XML_EXTN)
+                        os.remove(image_link + '.trustpolicy' + Crypt.XML_EXTN)
                     if os.path.ismount(image_realpath):
                         LOG.debug("Unmounting " + image_realpath)
                         make_umount_process_status = utils.create_subprocess(['umount', image_realpath])
