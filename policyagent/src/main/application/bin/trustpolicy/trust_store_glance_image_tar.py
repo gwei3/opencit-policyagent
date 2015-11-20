@@ -2,6 +2,7 @@ import os, shutil
 import logging
 import commons.utils as utils
 
+#This module represents the store where trustpolicy is in the glance image tar file
 class TrustPolicyStore:
 
     def __init__(self):
@@ -15,11 +16,15 @@ class TrustPolicyStore:
             if not os.path.exists(tarfile):
                 self.log.error("Image " + tarfile + " doesnot exists..")
                 raise Exception("Image " + tarfile + " doesnot exists..")
+            #Here we get the permissions of the tarfile downloaded from glance
             st = os.stat(tarfile)
+            #Untar the file if it's a tar file
             if utils.untar(tarfile, dest):
                 self.log.debug("tarfile extracted ")
                 trust_policy = None
                 img_type=['img','vhd','raw','qcow2']
+                #After untar we move the xml and image file to _base dir, make sure the permissions are same as it was before untar
+                #We also provide read access to trustpolicy for non root user as tagent runs as non root user.
                 for f in os.listdir(dest):
                     if f.endswith(".xml"):
                         trust_policy = tarfile + '.trustpolicy.xml'
@@ -33,12 +38,11 @@ class TrustPolicyStore:
                 shutil.rmtree(dest)
                 return trust_policy
             else:
+                #if the provided file is not a tar file then it was already downloaded and it's policy already exists
                 trust_policy = tarfile + '.trustpolicy.xml'
                 if not os.path.exists(trust_policy):
                     self.log.error(tarfile + ".xml" + " not exists")
                     raise Exception(tarfile + ".xml" + " not exists")
-                    #Throw error
-                    #pass
                 return trust_policy
         except Exception as e:
             self.log.exception("Failed while requesting policy : "+ str(e.message))

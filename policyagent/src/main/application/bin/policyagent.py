@@ -26,9 +26,12 @@ def launch(args):
         if os.path.isfile(args['base_image']):
             policy_location = None
             instance_dir = os.path.join(config['INSTANCES_DIR'],args['instance_id'])
+            #Retrieve the store module from TrustPolicyRetrieval factory depending on the trustpolicy location provided
             store = TrustPolicyRetrieval.trustPolicy(args['mtwilson_trustpolicy_location'])
             if store is not None:
+                #Here we get the policy from the store which we retrieved from the previous step
                 policy_location = store.getPolicy(args['image_id'], config)
+                #copy the policy in the instance directory
                 shutil.copy(policy_location, os.path.join(instance_dir,'trustpolicy.xml'))
             else:
                 LOG.exception("Mtwilson_trustpolicy_location is None")
@@ -48,6 +51,7 @@ def launch(args):
                                      instance_id = args['instance_id'], config = config)
                         decfile = crypt.decrypt()
                         LOG.debug("Expected md5sum : " + encryption_element['CHECKSUM'])
+                        #generate md5sum for the decrypted image
                         current_md5 = utils.generate_md5(decfile)
                         LOG.debug("Current md5sum : " + current_md5)
                         if current_md5 != encryption_element['CHECKSUM']:
@@ -85,6 +89,7 @@ def init_config():
     config = prop_parser.create_property_dict(POLICY_AGENT_PROPERTIES_FILE)
 
 def uninstall():
+    #First step is to unregister the startup script using update-rc.d or chkconfig depending on the linux flavour
     pa_init = which(STARTUP_SCRIPT_NAME)
     if flavour()[0] == 'Ubuntu':
         cmd = which('update-rc.d')
@@ -107,12 +112,17 @@ def uninstall():
         LOG.debug("Removing startup script : " + STARTUP_SCRIPT)
         os.remove(STARTUP_SCRIPT)
 
+
+    #Remove policyagent-init symlink
     os.remove(pa_init)
     pa = which(MODULE_NAME)
+    #Remove policyagent symlink
     os.remove(pa)
+    #Remove the policyagent directory
     if os.path.exists(PA_HOME) and os.path.isdir(PA_HOME):
         shutil.rmtree(PA_HOME)
 
+    #Remove the selinux policy in case of RHEL
     if flavour()[0] == 'Red Hat Enterprise Linux Server':
         semodule = utils.create_subprocess(['semodule', '-r', 'policyagent'])
         utils.call_subprocess(semodule)
@@ -127,9 +137,6 @@ if __name__ == "__main__":
     init_config()
     init_logger()
     try:
-        #init_logger()
-        #from commons.parse import ParseProperty
-        #init_config()
         from trustpolicy.trust_policy_retrieval import TrustPolicyRetrieval
         from commons.process_trust_policy import ProcessTrustpolicyXML
         import commons.utils as utils
