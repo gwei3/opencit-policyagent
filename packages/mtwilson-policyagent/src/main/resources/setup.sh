@@ -203,10 +203,10 @@ load_policyagent_defaults
 ##update_property_in_file "sparsefile.size" "$POLICYAGENT_PROPERTIES_FILE" "$SPARSEFILE_SIZE"
 
 # make sure prerequisites are installed
-POLICYAGENT_YUM_PACKAGES="zip unzip xmlstarlet python-lxml"
-POLICYAGENT_APT_PACKAGES="zip unzip xmlstarlet python-lxml"
-POLICYAGENT_YAST_PACKAGES="zip unzip xmlstarlet python-lxml"
-POLICYAGENT_ZYPPER_PACKAGES="zip unzip xmlstarlet python-lxml"
+POLICYAGENT_YUM_PACKAGES="zip unzip python-lxml"
+POLICYAGENT_APT_PACKAGES="zip unzip python-lxml"
+POLICYAGENT_YAST_PACKAGES="zip unzip python-lxml"
+POLICYAGENT_ZYPPER_PACKAGES="zip unzip python-lxml"
 auto_install "Installer requirements" "POLICYAGENT"
 if [ $? -ne 0 ]; then echo_failure "Failed to install prerequisites through package installer"; exit -1; fi
 

@@ -327,13 +327,8 @@ class Crypt(object):
                     make_tpm_proc = utils.create_subprocess([self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],\
                                                        '-i', key, '-q', ta_config['binding.key.secret'], '-x'])
                     make_tpm_proc_1 = utils.create_subprocess(['openssl', 'enc', '-base64'], stdin = make_tpm_proc.stdout)
-                    call_tpm_proc = utils.call_subprocess(make_tpm_proc_1)
-                    if make_tpm_proc_1.returncode != 0:
-                        LOG.error("Failed while TPM_UNBIND_AES_KEY..Exit code=" + str(make_tpm_proc_1.returncode))
-                        raise Exception("Failed while TPM_UNBIND_AES_KEY.")
-                    pa_dek_key = call_tpm_proc
                     make_openssl_decrypt_proc = utils.create_subprocess(['openssl', 'enc', '-d', '-aes-128-ofb', '-in', self.image,\
-                                                                   '-out', dec_file, '-pass', 'pass:' + pa_dek_key])
+                                                                   '-out', dec_file, '-pass', 'stdin'], make_tpm_proc_1.stdout)
                     utils.call_subprocess(make_openssl_decrypt_proc)
                     if make_openssl_decrypt_proc.returncode != 0:
                         LOG.error("Failed while decrypting image..Exit code = " + str(make_openssl_decrypt_proc.returncode))
