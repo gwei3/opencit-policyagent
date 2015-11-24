@@ -114,39 +114,53 @@ class Crypt(object):
             raise e
 
     # Function to create loop device, format and bind it, mount device mapper
-    def __create_encrypted_device(self, image_realpath, sparse_file_path, key):
+    def __create_encrypted_device(self, image_realpath, sparse_file_path, key, format_device=False):
         device_mapper = os.path.join(Crypt.DEVICE_MAPPER, self.image_id)
         try:
             loop_dev = utils.get_loop_device(sparse_file_path)
-            luks_format_proc_1 = utils.create_subprocess([self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],\
+            if format_device:
+                # Format device using cryptsetup for encryption
+                luks_format_proc_1 = utils.create_subprocess([self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],\
                                                     '-i', key, '-q', ta_config['binding.key.secret'], '-x'])
-
-            luks_format_proc_2 = utils.create_subprocess(['cryptsetup', '-v', '--batch-mode', 'luksFormat', '--key-file=-', loop_dev],\
+                luks_format_proc_2 = utils.create_subprocess(['cryptsetup', '-v', '--batch-mode', 'luksFormat', '--key-file=-', loop_dev],\
                                                    stdin = luks_format_proc_1.stdout)
-            call_luks_format_proc_2 = utils.call_subprocess(luks_format_proc_2)
-            if luks_format_proc_2.returncode != 0:
-                LOG.error("Failed while formatting loop device " + loop_dev + " ..exit code = " + str(call_luks_format_proc_2))
-                raise Exception("Failed while formatting loop device " + loop_dev)
-            LOG.debug("Loop device formatted successfully.")
-            luks_open_proc_1 = utils.create_subprocess([self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],\
+                utils.call_subprocess(luks_format_proc_2)
+                if luks_format_proc_2.returncode != 0:
+                    LOG.error("Failed while formatting loop device " + loop_dev + " ..exit code = " + str(luks_format_proc_2.returncode))
+                    raise Exception("Failed while formatting loop device " + loop_dev)
+                LOG.debug("Loop device formatted successfully.")
+            # Check whether device is already active/open
+            cryptsetup_status_proc = utils.create_subprocess(['cryptsetup', 'status', device_mapper])
+            utils.call_subprocess(cryptsetup_status_proc)
+            if cryptsetup_status_proc.returncode == 0:
+                LOG.debug("LUKS device is already open: " + device_mapper)
+            else:
+                # Open LUKS device
+                LOG.debug("Opening device: " + device_mapper)
+                luks_open_proc_1 = utils.create_subprocess([self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],\
                                                   '-i', key, '-q', ta_config['binding.key.secret'], '-x'])
-            luks_open_proc_2 = utils.create_subprocess(['cryptsetup', '-v', 'luksOpen','--key-file=-',loop_dev, self.image_id],\
+                luks_open_proc_2 = utils.create_subprocess(['cryptsetup', '-v', 'luksOpen','--key-file=-',loop_dev, self.image_id],\
                                                  stdin = luks_open_proc_1.stdout)
-            call_luks_open_proc_2 = utils.call_subprocess(luks_open_proc_2)
-            if luks_open_proc_2.returncode != 0:
-                LOG.error("Failed while key unbinding....Key =  " + key + " Loop device = " + loop_dev + "Exit code=" + str(call_luks_open_proc_2))
-                raise Exception("Failed while key unbinding ..Key =  " + key + " Loop device = " + loop_dev)
-            make_fs_status = utils.create_subprocess(['mkfs.ext4', '-v', device_mapper])
-            utils.call_subprocess(make_fs_status)
-            if make_fs_status.returncode != 0:
-                LOG.error("Failed while creating ext4 filesystem " + device_mapper + " ..Exit code = " + str(make_fs_status.returncode))
-                raise Exception("Failed while creating ext4 filesystem " + device_mapper)
-            make_mount_process_status = utils.create_subprocess(['mount', '-t', 'ext4', device_mapper, image_realpath])
-            utils.call_subprocess(make_mount_process_status)
-            if make_mount_process_status.returncode != 0:
-                LOG.error("Failed while mounting device mapper " + device_mapper + " ..Exit code = " + str(make_mount_process_status.returncode))
-                raise Exception("Failed while mounting device mapper " + device_mapper)
-            LOG.debug("Device mapper " + device_mapper + " mounted successfully")
+                utils.call_subprocess(luks_open_proc_2)
+                if luks_open_proc_2.returncode != 0:
+                    LOG.error("Failed while key unbinding....Key =  " + key + " Loop device = " + loop_dev + "Exit code=" + str(luks_open_proc_2.returncode))
+                    raise Exception("Failed while key unbinding ..Key =  " + key + " Loop device = " + loop_dev)
+            if format_device:
+                # Format device with ext4 filesystem
+                LOG.debug("Formating device: " + device_mapper)
+                make_fs_status = utils.create_subprocess(['mkfs.ext4', '-v', device_mapper])
+                utils.call_subprocess(make_fs_status)
+                if make_fs_status.returncode != 0:
+                    LOG.error("Failed while creating ext4 filesystem " + device_mapper + " ..Exit code = " + str(make_fs_status.returncode))
+                    raise Exception("Failed while creating ext4 filesystem " + device_mapper)
+            if not os.path.ismount(image_realpath):
+                LOG.debug("Mounting device: " + device_mapper)
+                make_mount_process_status = utils.create_subprocess(['mount', '-t', 'ext4', device_mapper, image_realpath])
+                utils.call_subprocess(make_mount_process_status)
+                if make_mount_process_status.returncode != 0:
+                    LOG.error("Failed while mounting device mapper " + device_mapper + " ..Exit code = " + str(make_mount_process_status.returncode))
+                    raise Exception("Failed while mounting device mapper " + device_mapper)
+                LOG.debug("Device mapper " + device_mapper + " mounted successfully")
         except Exception as e:
             LOG.exception("Failed while creating encrypted device: " + str(e.message))
             raise e
@@ -247,7 +261,8 @@ class Crypt(object):
                     if os.path.exists(sparse_file_path):
                         LOG.debug("Finding loop device linked to sparse file " + sparse_file_path)
                         losetup_file_process = utils.create_subprocess(['losetup', '-j', sparse_file_path])
-                        call_losetup_file_process = utils.call_subprocess(losetup_file_process)
+                        output = utils.call_subprocess(losetup_file_process)
+                        call_losetup_file_process = output[0]
                         if losetup_file_process.returncode != 0 or call_losetup_file_process == '':
                             LOG.debug("Failed to find linked loop device with the sparse file " + sparse_file_path)
                         else:
@@ -316,26 +331,32 @@ class Crypt(object):
                 if not os.path.isdir(image_realpath):
                     LOG.debug("Creating directory:" + image_realpath)
                     os.makedirs(image_realpath)
+                format_device = False 
                 if not os.path.isfile(sparse_file_path):
                     LOG.debug("Creating sparse file: " + sparse_file_path)
                     self.__create_sparse_file(sparse_file_path)
-                    self.__create_encrypted_device(image_realpath, sparse_file_path, key)
+                    format_device = True
+                LOG.debug("Creating encrypted device at " + image_realpath)
+                self.__create_encrypted_device(image_realpath, sparse_file_path, key, format_device)
                 if not os.path.isdir(dec_dir):
                     LOG.debug("Creating mount location base directory :" + dec_dir)
                     os.makedirs(dec_dir)
-                if (os.path.getsize(key) != 0) and not os.path.isfile(dec_file):
-                    make_tpm_proc = utils.create_subprocess([self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],\
+                if os.path.getsize(key) != 0:
+                    if not os.path.isfile(dec_file):
+                        make_tpm_proc = utils.create_subprocess([self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],\
                                                        '-i', key, '-q', ta_config['binding.key.secret'], '-x'])
-                    make_tpm_proc_1 = utils.create_subprocess(['openssl', 'enc', '-base64'], stdin = make_tpm_proc.stdout)
-                    make_openssl_decrypt_proc = utils.create_subprocess(['openssl', 'enc', '-d', '-aes-128-ofb', '-in', self.image,\
+                        make_tpm_proc_1 = utils.create_subprocess(['openssl', 'enc', '-base64'], stdin = make_tpm_proc.stdout)
+                        make_openssl_decrypt_proc = utils.create_subprocess(['openssl', 'enc', '-d', '-aes-128-ofb', '-in', self.image,\
                                                                    '-out', dec_file, '-pass', 'stdin'], make_tpm_proc_1.stdout)
-                    utils.call_subprocess(make_openssl_decrypt_proc)
-                    if make_openssl_decrypt_proc.returncode != 0:
-                        LOG.error("Failed while decrypting image..Exit code = " + str(make_openssl_decrypt_proc.returncode))
-                        raise Exception("Failed while decrypting image")
+                        utils.call_subprocess(make_openssl_decrypt_proc)
+                        if make_openssl_decrypt_proc.returncode != 0:
+                            LOG.error("Failed while decrypting image..Exit code = " + str(make_openssl_decrypt_proc.returncode))
+                            raise Exception("Failed while decrypting image")
+                    else:
+                        LOG.debug("Decrypted file already exists at " + dec_file)
                 else:
-                    LOG.error("Failed due to key or file not found : " + image_realpath + Crypt.BASE_DIR + self.image_id)
-                    raise Exception("Failed due to key or file not found")
+                    LOG.error("Failed due to key file not found: " + key)
+                    raise Exception("Failed due to key file not found")
                 if self.__openssl_encrypted_file(dec_file) is False:
                     LOG.debug("Decrypted image : " + dec_file)
                     st = os.stat(self.image)

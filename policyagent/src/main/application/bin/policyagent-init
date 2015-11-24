@@ -13,6 +13,8 @@
 # Ensure the script is loaded just after init scripts
 
 logfile=/var/log/policyagent-init.log
+echo " ****************** Starting policyagent-init script **************** " >> $logfile
+date >> $logfile
 whoami >> $logfile
 tcsd 2>> $logfile
 ps -ef | grep tcsd >> $logfile
@@ -26,12 +28,7 @@ case "$1" in
 	echo "Initial mounts ===========" >> $logfile
         echo "******************************************" >> $logfile
 	mount >> $logfile
-        if [ -d "$DISK_LOCATION" ] && [ -d "$ENC_KEY_LOCATION" ]; then
-            /usr/bin/python /opt/policyagent/bin/mount_on_reboot.py
-        else
-            echo "Cannot re mount the directories, enc_disk directories and encrypted keys does not exist" >> $logfile
-            exit 1
-        fi
+        /usr/bin/python /opt/policyagent/bin/mount_on_reboot.py
         echo "Final mounts ===========" >> $logfile
         echo "******************************************" >> $logfile
         mount >> $logfile

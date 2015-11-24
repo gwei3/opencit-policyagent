@@ -25,8 +25,19 @@ def get_root_of_xml(xmlstring):
 
 def get_loop_device(sparse_file_path):
     try:
+        LOG.debug("Finding loop device linked to sparse file " + sparse_file_path)
+        losetup_file_process = create_subprocess(['losetup', '-j', sparse_file_path])
+        output = call_subprocess(losetup_file_process)
+        call_losetup_file_process = output[0]
+        if losetup_file_process.returncode == 0 and call_losetup_file_process != '':
+            loop_device = call_losetup_file_process.split(":")[0]
+            LOG.debug("Found attached loop device = " + loop_device)
+            return loop_device
+
         make_proc = create_subprocess(['losetup', '--find'], None)
-        loop_dev = call_subprocess(make_proc)
+        output = call_subprocess(make_proc)
+        if make_proc.returncode == 0:
+            loop_dev = output[0] 
         if loop_dev is None:
             LOG.debug("Requires additional loop device for use")
             count = 0
@@ -39,7 +50,9 @@ def get_loop_device(sparse_file_path):
             device = os.makedev(7,count)
             os.mknod(device_name, 0660 | stat.S_ISBLK, device)
             make_proc = create_subprocess(['losetup','--find'])
-            loop_dev = call_subprocess(make_proc)
+            output = call_subprocess(make_proc)
+            if make_proc.returncode == 0:
+                loop_dev = output[0]
         if loop_dev is not None:
             make_proc = create_subprocess(['losetup', loop_dev, sparse_file_path])
             call_subprocess(make_proc)
@@ -79,13 +92,21 @@ def create_subprocess(command, stdin = None):
         raise e
 
 def call_subprocess(poutput):
+    '''This function executes subprocess (in form of Popen object) and returns
+    tuple (stdout, stderr).
+    Caller can check exit code of the subprocess using Popen object's 'returncode' method.
+
+    input: Popen object containing subprocess command
+    return: (stdout, stderr)
+    '''
     try:
         output = poutput.communicate()
-        if poutput.returncode == 0:
-            return output[0].strip()
-        else:
-            LOG.error(output)
-            raise Exception("Command failed!")
+        LOG.debug("Exit status: " + str(poutput.returncode))
+        if poutput.returncode != 0:
+            LOG.warning("Process returned non-zero exit code: " + str(poutput.returncode))
+            LOG.warning("Process STDOUT: " + output[0])
+            LOG.warning("Process STDERR: " + output[1])
+        return (output[0].strip(), output[1].strip())
     except Exception as e:
         LOG.exception("Command failed!")
         raise e
