@@ -247,7 +247,7 @@ if [ -n "$policyagent_init" ]; then
 fi
 ln -s "$POLICYAGENT_HOME/bin/policyagent-init" "/usr/local/bin/policyagent-init"
 
-register_startup_script /usr/local/bin/policyagent-init policyagent-init
+register_startup_script /usr/local/bin/policyagent-init policyagent-init 99
 
 # delete the temporary setup environment variables file
 rm -f $POLICYAGENT_ENV/policyagent-setup
