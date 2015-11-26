@@ -22,7 +22,6 @@ class TrustPolicyStore:
             if utils.untar(tarfile, dest):
                 self.log.debug("tarfile extracted ")
                 trust_policy = None
-                img_type=['img','vhd','raw','qcow2']
                 #After untar we move the xml and image file to _base dir, make sure the permissions are same as it was before untar
                 #We also provide read access to trustpolicy for non root user as tagent runs as non root user.
                 for f in os.listdir(dest):
@@ -31,7 +30,7 @@ class TrustPolicyStore:
                         src = os.path.join(dest, f)
                         shutil.copy(src, trust_policy)
                         os.chmod(trust_policy, 0644)
-                    if any(x in f for x in img_type):
+                    else:
                         src = os.path.join(dest, f)
                         shutil.move(src, tarfile)
                         os.chown(tarfile, st.st_uid, st.st_gid)
