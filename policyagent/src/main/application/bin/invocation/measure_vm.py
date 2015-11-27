@@ -5,14 +5,11 @@ import logging.config
 from lxml import builder, etree as ET
 from base64 import b64encode, b64decode
 from stream import TCBuffer
-import utils as utils
+import commons.utils as utils
 from vrtm_invoke import VRTMInvoke
 
 class VRTMReq(object):
 
-    DISK = '-disk'
-    MANIFEST = '-manifest'
-    METHOD_NAME = 'get_verification_status'
     VRTM_REQ_ID = 15
     VRTM_REQ_STATUS = 0
     MODULE_NAME = 'policyagent'
@@ -23,7 +20,7 @@ class VRTMReq(object):
         self.__tc_buffer = TCBuffer()
 
     # This function generates xml string to be passed to VRTM server.
-    def vrtm_generate_xml(self, disk_path, manifest_path):
+    def vrtm_generate_xml(self, method_name, *argv):
         element = builder.ElementMaker()
         xml_root = element.methodCall
         xml_method = element.methodName
@@ -32,28 +29,15 @@ class VRTMReq(object):
         xml_value = element.value
         xml_string = element.string
         try:
-            encoded_disk = b64encode(VRTMReq.DISK)
-            encoded_disk_path = b64encode(disk_path)
-            encoded_manifest = b64encode(VRTMReq.MANIFEST)
-            encoded_manifest_path = b64encode(manifest_path)
-        except Exception as e:
-            self.log_obj.exception('Error in Base 64 encoding of values!')
-            raise e
-
-        try:
-            new_xml = xml_root(xml_method(VRTMReq.METHOD_NAME),
-                                          xml_params(
-                                                     xml_param(xml_value(xml_string(encoded_disk))),
-                                                     xml_param(xml_value(xml_string(encoded_disk_path))),
-                                                     xml_param(xml_value(xml_string(encoded_manifest))),
-                                                     xml_param(xml_value(xml_string(encoded_manifest_path)))
-                                                    )
-                              )
+            new_xml = xml_root(xml_method(method_name))
+            for arg in argv:
+                encoded_value = b64encode(arg)
+                new_xml.append(xml_params(xml_param(xml_value(xml_string(encoded_value)))))
             xml = ET.tostring(new_xml, pretty_print=True)
             new_xml = "".join(xml.split())
             return new_xml
         except Exception as e:
-            self.log_obj.exception('Error in creating xml string!')
+            self.log_obj.exception('Error in Base 64 encoding of values!')
             raise e
 
     def measure_vm(self, xml_string, dictt):
@@ -88,5 +72,5 @@ if __name__ == '__main__':
 
     logging.config.fileConfig(fname='/root/test_vrtm/vrtm_invoke_logging.cfg')
     vrtm = VRTMReq()
-    xml_string = vrtm.vrtm_generate_xml('/root/test_vrtm/de723e27-800d-400a-9f84-9af3686d2d61/ab913bd571e1324a2ac125608b616ba7c4a19c6d', '/root/test_vrtm/de723e27-800d-400a-9f84-9af3686d2d61/trustpolicy.xml')
+    xml_string = vrtm.vrtm_generate_xml('get_verification_status', '-disk', '/root/test_vrtm/de723e27-800d-400a-9f84-9af3686d2d61/ab913bd571e1324a2ac125608b616ba7c4a19c6d', '-manifest', '/root/test_vrtm/de723e27-800d-400a-9f84-9af3686d2d61/trustpolicy.xml')
     vrtm.measure_vm(xml_string, {'VRTM_IP' : '127.0.0.1', 'VRTM_PORT' : '16005'})

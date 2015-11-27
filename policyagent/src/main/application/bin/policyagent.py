@@ -167,6 +167,23 @@ def uninstall():
             LOG.error("Failed to execute semodule command. Exit code = " + str(semodule.returncode))
             raise Exception("Failed to remove selinux policy")
 
+def container_launch(args):
+    mount_path = args['root_path']
+    LOG.info('Mount Path : ' + mount_path)
+    policy_location = os.path.join(mount_path, args['mtwilson_trustpolicy_location'][1:])
+    LOG.info('Trust_policy : ' + policy_location)
+    if os.path.exists(policy_location):
+        xml_parser = ProcessTrustpolicyXML(policy_location)
+        #if xml_parser.verify_trust_policy_signature(config['TAGENT_LOCATION'], policy_location):
+        container_dir = os.path.join(config['CONTAINERS_DIR'], args['container_id'])
+        shutil.copy(policy_location, os.path.join(container_dir,'trustpolicy.xml'))
+        xml_parser.generate_manifestlist_xml(container_dir)
+        vrtm = VRTMReq()
+        xml_string = vrtm.vrtm_generate_xml('method', '-mount_path', mount_path, '-manifest', os.path.join(container_dir,'trustpolicy.xml'), '-uuid', args['container_id'], '-docker_instance')
+        LOG.info('vRTM Request : ')
+        LOG.info(xml_string)
+        vrtm.measure_vm(xml_string, {'VRTM_IP' : '127.0.0.1', 'VRTM_PORT' : '16005'})
+
 
 # execute only if imported as module
 if __name__ == "__main__":
@@ -180,8 +197,10 @@ if __name__ == "__main__":
         from encryption.crypt import Crypt
         parser = argparse.ArgumentParser()
         subparsers = parser.add_subparsers()
+        #version command parser
         version_parser = subparsers.add_parser("version")
         version_parser.set_defaults(func = version)
+        #VM launch command parser
         launch_parser = subparsers.add_parser("launch")
         launch_parser.add_argument("base_image")
         launch_parser.add_argument("image_id")
@@ -189,13 +208,24 @@ if __name__ == "__main__":
         launch_parser.add_argument("mtwilson_trustpolicy_location")
         launch_parser.add_argument("root_disk_size_gb", type=int)
         launch_parser.set_defaults(func = launch)
+        #VM delete command parser
         delete_parser = subparsers.add_parser("delete")
         delete_parser.add_argument("instance_path")
         delete_parser.set_defaults(func = delete)
+        #enc disc remount command parser
         remount_parser = subparsers.add_parser("remount")
         remount_parser.set_defaults(func=remount)
+        #policyagent uninstall command parser
         uninstall_parser = subparsers.add_parser("uninstall")
         uninstall_parser.set_defaults(func = uninstall)
+        #docker container launch command parser
+        container_launch_parser = subparsers.add_parser("container_launch")
+        container_launch_parser.add_argument("root_path")
+        container_launch_parser.add_argument("image_id")
+        container_launch_parser.add_argument("container_id")
+        container_launch_parser.add_argument("mtwilson_trustpolicy_location")
+        container_launch_parser.set_defaults(func = container_launch)
+
         args = parser.parse_args()
         dict_args = vars(args)
         dict_len = len(dict_args)
