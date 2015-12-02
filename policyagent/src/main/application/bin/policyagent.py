@@ -59,6 +59,9 @@ def launch(args):
                         if current_md5 != encryption_element['CHECKSUM']:
                             LOG.exception("checksum mismatch")
                             raise Exception("checksum mismatch")
+                else:
+                    LOG.exception("Trustpolicy signature mismatch. Aborting launch.")
+                    raise Exception("Trustpolicy signature mismatch.")
             else:
                 LOG.exception("policy location has None value")
                 raise Exception("policy location has None value")
