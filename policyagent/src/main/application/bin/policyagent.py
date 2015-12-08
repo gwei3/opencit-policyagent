@@ -195,6 +195,7 @@ if __name__ == "__main__":
         from commons.process_trust_policy import ProcessTrustpolicyXML
         import commons.utils as utils
         from encryption.crypt import Crypt
+        from invocation.measure_vm import VRTMReq
         parser = argparse.ArgumentParser()
         subparsers = parser.add_subparsers()
         #version command parser
