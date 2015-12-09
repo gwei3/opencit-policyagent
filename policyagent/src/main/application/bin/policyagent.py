@@ -178,11 +178,25 @@ def container_launch(args):
     if os.path.exists(policy_location):
         xml_parser = ProcessTrustpolicyXML(policy_location)
         #if xml_parser.verify_trust_policy_signature(config['TAGENT_LOCATION'], policy_location):
+        instance_uuid_process = utils.create_subprocess(['docker', 'inspect', '-f', '{{.Name}}', args['container_id']])
+        out = utils.call_subprocess(instance_uuid_process)
+        instance_uuid = out[0][6:]
+        LOG.info('Instance UUID : ' + instance_uuid)
         container_dir = os.path.join(config['CONTAINERS_DIR'], args['container_id'])
-        shutil.copy(policy_location, os.path.join(container_dir,'trustpolicy.xml'))
-        xml_parser.generate_manifestlist_xml(container_dir)
+        if not os.path.exists(config['TRUSTREPORTS_DIR']):
+            os.mkdir(config['TRUSTREPORTS_DIR'])
+            os.chmod(config['TRUSTREPORTS_DIR'], 0775)
+        instance_dir = os.path.join(config['TRUSTREPORTS_DIR'], instance_uuid)
+        if not os.path.exists(instance_dir):
+            os.mkdir(instance_dir)
+            os.chmod(instance_dir, 0775)
+            shutil.copy(policy_location, os.path.join(instance_dir, 'trustpolicy.xml'))
+            os.chmod(os.path.join(instance_dir, 'trustpolicy.xml'), 0664)
+            xml_parser.generate_manifestlist_xml(instance_dir)
+            os.chmod(os.path.join(instance_dir, 'manifest.xml'), 0664)
+
         vrtm = VRTMReq()
-        xml_string = vrtm.vrtm_generate_xml('method', '-mount_path', mount_path, '-manifest', os.path.join(container_dir,'trustpolicy.xml'), '-uuid', args['container_id'], '-docker_instance')
+        xml_string = vrtm.vrtm_generate_xml('method', '-mount_path', mount_path, '-manifest', os.path.join(container_dir,'trustpolicy.xml'), '-uuid', instance_uuid, '-docker_instance')
         LOG.info('vRTM Request : ')
         LOG.info(xml_string)
         vrtm.measure_vm(xml_string, {'VRTM_IP' : '127.0.0.1', 'VRTM_PORT' : '16005'})
