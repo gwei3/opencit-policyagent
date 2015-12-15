@@ -59,9 +59,6 @@ def launch(args):
                         if current_md5 != encryption_element['CHECKSUM']:
                             LOG.exception("checksum mismatch")
                             raise Exception("checksum mismatch")
-                else:
-                    LOG.exception("Trustpolicy signature mismatch. Aborting launch.")
-                    raise Exception("Trustpolicy signature mismatch.")
             else:
                 LOG.exception("policy location has None value")
                 raise Exception("policy location has None value")
@@ -192,14 +189,21 @@ def container_launch(args):
             os.chmod(instance_dir, 0775)
             shutil.copy(policy_location, os.path.join(instance_dir, 'trustpolicy.xml'))
             os.chmod(os.path.join(instance_dir, 'trustpolicy.xml'), 0664)
+            if not xml_parser.verify_trust_policy_signature(config['TAGENT_LOCATION'], os.path.join(instance_dir, 'trustpolicy.xml')):
+                shutil.rmtree(instance_dir)
+                LOG.exception("Mtwilson trustpolicy verification failed")
+                raise Exception("Mtwilson trustpolicy verification failed")
             xml_parser.generate_manifestlist_xml(instance_dir)
             os.chmod(os.path.join(instance_dir, 'manifest.xml'), 0664)
 
         vrtm = VRTMReq()
-        xml_string = vrtm.vrtm_generate_xml('method', '-mount_path', mount_path, '-manifest', os.path.join(container_dir,'trustpolicy.xml'), '-uuid', instance_uuid, '-docker_instance')
+        xml_string = vrtm.vrtm_generate_xml('method', '-mount_path', mount_path, '-manifest', os.path.join(container_dir,'trustpolicy.xml'), '-uuid', out[0][6:], '-docker_instance')
         LOG.info('vRTM Request : ')
         LOG.info(xml_string)
         vrtm.measure_vm(xml_string, {'VRTM_IP' : '127.0.0.1', 'VRTM_PORT' : '16005'})
+    else :
+        LOG.exception("Mtwilson_trustpolicy_location is None")
+        raise Exception("Mtwilson_trustpolicy_location is None")
 
 
 # execute only if imported as module

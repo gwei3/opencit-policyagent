@@ -59,7 +59,7 @@ class VRTMReq(object):
             root = utils.get_root_of_xml(stream)
             enc_retcode = root.find('params').find('param').find('value').find('string').text
             dec_retcode = b64decode(enc_retcode)
-            if not dec_retcode > 0:
+            if int(dec_retcode) < 0:
                 self.log_obj.error("Vrtm not invoked successfully!" + str(dec_retcode))
                 raise Exception("Vrtm not invoked successfully!")
             else: self.log_obj.info("Successfully received the response from VRTM. : " + str(dec_retcode))
