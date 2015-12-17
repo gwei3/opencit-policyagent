@@ -7,6 +7,7 @@ from platform import linux_distribution as flavour
 import shutil
 
 config = None
+vrtm_config = None
 LOG = None
 
 import logging as loging
@@ -55,10 +56,10 @@ def launch(args):
                         if current_md5 != encryption_element['CHECKSUM']:
                             LOG.exception("checksum mismatch")
                             raise Exception("checksum mismatch")
-                if not os.path.exists(config['TRUSTREPORTS_DIR']):
-                    os.mkdir(config['TRUSTREPORTS_DIR'])
-                    os.chmod(config['TRUSTREPORTS_DIR'], 0775)
-                trustreport_instance_dir = os.path.join(config['TRUSTREPORTS_DIR'], args['instance_id'])
+                if not os.path.exists(vrtm_config['trust_report_dir']):
+                    os.mkdir(vrtm_config['trust_report_dir'])
+                    os.chmod(vrtm_config['trust_report_dir'], 0775)
+                trustreport_instance_dir = os.path.join(vrtm_config['trust_report_dir'], args['instance_id'])
                 if not os.path.exists(trustreport_instance_dir):
                     os.mkdir(trustreport_instance_dir)
                     os.chmod(trustreport_instance_dir, 0775)
@@ -96,7 +97,8 @@ def init_config():
     prop_parser = ParseProperty()
     global config
     config = prop_parser.create_property_dict(POLICY_AGENT_PROPERTIES_FILE)
-
+    global vrtm_config
+    vrtm_config = prop_parser.create_property_dict(config['VRTM_PROPERTIES'])
 
 def remount():
     if not os.path.isdir(config['DISK_LOCATION']):
@@ -182,10 +184,10 @@ def container_launch(args):
     if os.path.exists(policy_location):
         xml_parser = ProcessTrustpolicyXML(policy_location)
         container_dir = os.path.join(config['CONTAINERS_DIR'], args['container_id'])
-        if not os.path.exists(config['TRUSTREPORTS_DIR']):
-            os.mkdir(config['TRUSTREPORTS_DIR'])
-            os.chmod(config['TRUSTREPORTS_DIR'], 0775)
-        trustreport_container_dir = os.path.join(config['TRUSTREPORTS_DIR'], args['container_id'])
+        if not os.path.exists(vrtm_config['trust_report_dir']):
+            os.mkdir(vrtm_config['trust_report_dir'])
+            os.chmod(vrtm_config['trust_report_dir'], 0775)
+        trustreport_container_dir = os.path.join(vrtm_config['trust_report_dir'], args['container_id'])
         if not os.path.exists(trustreport_container_dir):
             os.mkdir(trustreport_container_dir)
             os.chmod(trustreport_container_dir, 0775)
