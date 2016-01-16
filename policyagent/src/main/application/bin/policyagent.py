@@ -26,9 +26,12 @@ def launch(args):
         if os.path.isfile(args['base_image']):
             policy_location = None
             instance_dir = os.path.join(config['INSTANCES_DIR'],args['instance_id'])
+            #Retrieve the store module from TrustPolicyRetrieval factory depending on the trustpolicy location provided
             store = TrustPolicyRetrieval.trustPolicy(args['mtwilson_trustpolicy_location'])
             if store is not None:
+                #Here we get the policy from the store which we retrieved from the previous step
                 policy_location = store.getPolicy(args['image_id'], config)
+                #copy the policy in the instance directory
                 shutil.copy(policy_location, os.path.join(instance_dir,'trustpolicy.xml'))
             else:
                 LOG.exception("Mtwilson_trustpolicy_location is None")
@@ -42,17 +45,23 @@ def launch(args):
                     #retrieve encryption element which has dek_url and checksum
                     encryption_element = xml_parser.retrieve_chksm()
                     if encryption_element is not None:
-                        crypt = Crypt(image = os.path.join(config['INSTANCES_DIR'],'_base', args['image_id']),\
-                                     image_id = args['image_id'], dek_url = encryption_element['DEK_URL'], \
-                                     instance_dir = instance_dir, root_disk_size_gb = args['root_disk_size_gb'],\
-                                     instance_id = args['instance_id'], config = config)
-                        decfile = crypt.decrypt()
+                        crypt = Crypt(config=config)
+                        decfile = crypt.decrypt(image_id=args['image_id'],
+                                                image=os.path.join(config['INSTANCES_DIR'], '_base', args['image_id']),
+                                                dek_url=encryption_element['DEK_URL'],
+                                                instance_dir=instance_dir,
+                                                root_disk_size_gb=args['root_disk_size_gb'],
+                                                instance_id=args['instance_id'])
                         LOG.debug("Expected md5sum : " + encryption_element['CHECKSUM'])
+                        #generate md5sum for the decrypted image
                         current_md5 = utils.generate_md5(decfile)
                         LOG.debug("Current md5sum : " + current_md5)
                         if current_md5 != encryption_element['CHECKSUM']:
                             LOG.exception("checksum mismatch")
                             raise Exception("checksum mismatch")
+                else:
+                    LOG.exception("Trustpolicy signature mismatch. Aborting launch.")
+                    raise Exception("Trustpolicy signature mismatch.")
             else:
                 LOG.exception("policy location has None value")
                 raise Exception("policy location has None value")
@@ -65,8 +74,8 @@ def launch(args):
 
 def delete(args):
     try :
-        enc_inst = Crypt(instance_path = args['instance_path'], config = config)
-        enc_inst.delete()
+        enc_inst = Crypt(config=config)
+        enc_inst.delete(instance_path=args['instance_path'])
     except Exception as e:
         LOG.exception("Failed during delete call " + str(e.message))
         raise e
@@ -84,7 +93,43 @@ def init_config():
     global config
     config = prop_parser.create_property_dict(POLICY_AGENT_PROPERTIES_FILE)
 
+
+def remount():
+    if not os.path.isdir(config['DISK_LOCATION']):
+        LOG.warning(config['DISK_LOCATION'] + ' directory does not exists.')
+        return
+    if not os.path.isdir(config['ENC_KEY_LOCATION']):
+        os.mkdir(config['ENC_KEY_LOCATION'])
+    # For all the sparse files present in the /var/lib/nova/instances/enc_disk directories mount encrypted discs using
+    # encrypted loop device
+    crypt = Crypt(config)
+    for enc_file in os.listdir(config['DISK_LOCATION']):
+        LOG.debug("Processing {0}".format(enc_file))
+        try:
+            key_path = os.path.join(config['ENC_KEY_LOCATION'], "{0}{1}".format(enc_file, Crypt.KEY_EXTN))
+            LOG.debug("Key path: {0}".format(key_path))
+            image_id = enc_file
+            if not os.path.isfile(key_path):
+                LOG.debug("Key not found at {0}. Downloading key again".format(key_path))
+                policy_location = os.path.join(config['INSTANCES_DIR'], '_base', "{0}.trustpolicy.xml".format(image_id))
+                LOG.debug("Policy location: {0}".format(policy_location))
+                if not os.path.isfile(policy_location):
+                    LOG.info("Policy doesn't exist at {0}".format(policy_location))
+                    continue
+                xml_parser = ProcessTrustpolicyXML(policy_location)
+                dek_url = xml_parser.retrieve_chksm()['DEK_URL']
+                crypt.request_dek(dek_url, key_path)
+            LOG.debug("Creating and mounting encrypted device: {0}".format(image_id))
+            crypt.create_encrypted_device(image_id, os.path.join(config['MOUNT_LOCATION'], image_id),
+                                          os.path.join(config['DISK_LOCATION'], image_id), key_path, False)
+        except Exception as e:
+            LOG.error('Failed while mounting encrypted device: {0}'.format(enc_file))
+            LOG.exception(e.message)
+            continue
+
+
 def uninstall():
+    #First step is to unregister the startup script using update-rc.d or chkconfig depending on the linux flavour
     pa_init = which(STARTUP_SCRIPT_NAME)
     if flavour()[0] == 'Ubuntu':
         cmd = which('update-rc.d')
@@ -107,11 +152,24 @@ def uninstall():
         LOG.debug("Removing startup script : " + STARTUP_SCRIPT)
         os.remove(STARTUP_SCRIPT)
 
+
+    #Remove policyagent-init symlink
     os.remove(pa_init)
     pa = which(MODULE_NAME)
+    #Remove policyagent symlink
     os.remove(pa)
+    #Remove the policyagent directory
     if os.path.exists(PA_HOME) and os.path.isdir(PA_HOME):
         shutil.rmtree(PA_HOME)
+
+    #Remove the selinux policy in case of RHEL
+    if flavour()[0] == 'Red Hat Enterprise Linux Server':
+        semodule = utils.create_subprocess(['semodule', '-r', 'policyagent'])
+        utils.call_subprocess(semodule)
+        if semodule.returncode != 0:
+            LOG.error("Failed to execute semodule command. Exit code = " + str(semodule.returncode))
+            raise Exception("Failed to remove selinux policy")
+
 
 # execute only if imported as module
 if __name__ == "__main__":
@@ -119,9 +177,6 @@ if __name__ == "__main__":
     init_config()
     init_logger()
     try:
-        #init_logger()
-        #from commons.parse import ParseProperty
-        #init_config()
         from trustpolicy.trust_policy_retrieval import TrustPolicyRetrieval
         from commons.process_trust_policy import ProcessTrustpolicyXML
         import commons.utils as utils
@@ -135,11 +190,13 @@ if __name__ == "__main__":
         launch_parser.add_argument("image_id")
         launch_parser.add_argument("instance_id")
         launch_parser.add_argument("mtwilson_trustpolicy_location")
-        launch_parser.add_argument("root_disk_size_gb")
+        launch_parser.add_argument("root_disk_size_gb", type=int)
         launch_parser.set_defaults(func = launch)
         delete_parser = subparsers.add_parser("delete")
         delete_parser.add_argument("instance_path")
         delete_parser.set_defaults(func = delete)
+        remount_parser = subparsers.add_parser("remount")
+        remount_parser.set_defaults(func=remount)
         uninstall_parser = subparsers.add_parser("uninstall")
         uninstall_parser.set_defaults(func = uninstall)
         args = parser.parse_args()
