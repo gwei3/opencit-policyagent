@@ -2,6 +2,7 @@ import os
 import shutil
 import requests
 import logging
+import time
 from commons.parse import ParseProperty
 import commons.utils as utils
 
@@ -25,8 +26,16 @@ class Crypt(object):
         global LOG
         LOG = logging.getLogger(MODULE_NAME)
         self.pa_config = config
+        TA_PROP_FILE = "trustagent" + ((str)((int)(time.time()))) + ".properties"
+        decrypt_tagent_prop_process = utils.create_subprocess(['tagent', 'export-config', os.path.join("/tmp", TA_PROP_FILE)])
+        utils.call_subprocess(decrypt_tagent_prop_process)
+        if decrypt_tagent_prop_process.returncode != 0:
+            LOG.error("Failed to decrypt trustagent properties file. Exit code = " + str(decrypt_tagent_prop_process.returncode))
+            raise Exception("Failed to decrypt trustagent properties file.")
         global ta_config
-        ta_config = pa_parse.create_property_dict(self.pa_config['TRUST_AGENT_PROPERTIES'])
+        ta_config = pa_parse.create_property_dict(os.path.join("/tmp", TA_PROP_FILE))
+        #clean the temporary file after readng it
+        os.remove(os.path.join("/tmp", TA_PROP_FILE))
 
     # Function to request key to KMS
     def __kms_request_key(self, aik_dir, dek_url, key_path):
