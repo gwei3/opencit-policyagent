@@ -27,7 +27,7 @@ class Crypt(object):
         LOG = logging.getLogger(MODULE_NAME)
         self.pa_config = config
         TA_PROP_FILE = "trustagent" + ((str)((int)(time.time()))) + ".properties"
-        decrypt_tagent_prop_process = utils.create_subprocess(['tagent', 'export-config', os.path.join("/tmp", TA_PROP_FILE)])
+        decrypt_tagent_prop_process = utils.create_subprocess([config['TAGENT_LOCATION'], 'export-config', os.path.join("/tmp", TA_PROP_FILE)])
         utils.call_subprocess(decrypt_tagent_prop_process)
         if decrypt_tagent_prop_process.returncode != 0:
             LOG.error("Failed to decrypt trustagent properties file. Exit code = " + str(decrypt_tagent_prop_process.returncode))
