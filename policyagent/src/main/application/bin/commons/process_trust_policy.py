@@ -67,6 +67,7 @@ class ProcessTrustpolicyXML(object):
 
     def verify_trust_policy_signature(self, tagent_location, policy_location):
         try:
+            self.log_obj.info('Verifiying trust policy signature ...')
             poutput = utils.create_subprocess([tagent_location, ProcessTrustpolicyXML.VERIFY_TRUST_SIG, policy_location])
             utils.call_subprocess(poutput)
             if poutput.returncode == 0:

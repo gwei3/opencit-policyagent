@@ -2,6 +2,7 @@
 
 import argparse
 from distutils.spawn import find_executable as which
+from inspect import getsourcefile
 import os
 from platform import linux_distribution as flavour
 import shutil
@@ -14,7 +15,6 @@ import logging as loging
 import logging.config as logging_config
 
 MODULE_NAME = 'policyagent'
-POLICY_AGENT_PROPERTIES_FILE = '/opt/policyagent/configuration/policyagent.properties'
 INIT_DIR='/etc/init.d'
 STARTUP_SCRIPT_NAME='policyagent-init'
 PA_HOME='/opt/policyagent'
@@ -22,7 +22,7 @@ PA_HOME='/opt/policyagent'
 def version():
     LOG.info('policyagent-0.1')
 
-def launch(args):
+def prepare_trusted_image(args):
     try:
         if os.path.isfile(args['base_image']):
             policy_location = None
@@ -31,14 +31,13 @@ def launch(args):
             store = TrustPolicyRetrieval.trustPolicy(args['mtwilson_trustpolicy_location'])
             if store is not None:
                 #Here we get the policy from the store which we retrieved from the previous step
-                policy_location = store.getPolicy(args['image_id'], config)
+                policy_location = store.getPolicy(args, config)
             else:
                 LOG.exception("Mtwilson_trustpolicy_location is None")
                 raise Exception("Mtwilson_trustpolicy_location is None")
             if policy_location is not None:
-                LOG.info('Verifiying trust policy signature ...')
                 xml_parser = ProcessTrustpolicyXML(policy_location)
-                if xml_parser.verify_trust_policy_signature(config['TAGENT_LOCATION'], policy_location):
+                if (not os.name == 'nt') and xml_parser.verify_trust_policy_signature(config['TAGENT_LOCATION'], policy_location):
                     #retrieve encryption element which has dek_url and checksum
                     encryption_element = xml_parser.retrieve_chksm()
                     if encryption_element is not None:
@@ -56,17 +55,8 @@ def launch(args):
                         if current_md5 != encryption_element['CHECKSUM']:
                             LOG.exception("checksum mismatch")
                             raise Exception("checksum mismatch")
-                if not os.path.exists(vrtm_config['trust_report_dir']):
-                    os.mkdir(vrtm_config['trust_report_dir'])
-                    os.chmod(vrtm_config['trust_report_dir'], 0775)
-                trustreport_instance_dir = os.path.join(vrtm_config['trust_report_dir'], args['instance_id'])
-                if not os.path.exists(trustreport_instance_dir):
-                    os.mkdir(trustreport_instance_dir)
-                    os.chmod(trustreport_instance_dir, 0775)
-                shutil.copy(policy_location, os.path.join(trustreport_instance_dir,'trustpolicy.xml'))
-                os.chmod(os.path.join(trustreport_instance_dir, 'trustpolicy.xml'), 0664)
-                xml_parser.generate_manifestlist_xml(trustreport_instance_dir)
-                os.chmod(os.path.join(trustreport_instance_dir, 'manifest.xml'), 0664)
+                if not os.name == 'nt':
+                    create_trust_reports_dir(args, policy_location, xml_parser)
             else:
                 LOG.exception("policy location has None value")
                 raise Exception("policy location has None value")
@@ -76,6 +66,23 @@ def launch(args):
     except Exception as e:
         LOG.exception("Failed during launch call " + str(e.message))
         raise e
+		
+def create_trust_reports_dir(args, policy_location, xml_parser):
+    if not os.path.exists(vrtm_config['trust_report_dir']):
+        os.mkdir(vrtm_config['trust_report_dir'])
+        if not os.name == 'nt':
+            os.chmod(vrtm_config['trust_report_dir'], 0775)
+    trustreport_instance_dir = os.path.join(vrtm_config['trust_report_dir'], args['instance_id'])
+    if not os.path.exists(trustreport_instance_dir):
+        os.mkdir(trustreport_instance_dir)
+        if not os.name == 'nt':
+            os.chmod(trustreport_instance_dir, 0775)
+    shutil.copy(policy_location, os.path.join(trustreport_instance_dir,'trustpolicy.xml'))
+    if not os.name == 'nt':
+        os.chmod(os.path.join(trustreport_instance_dir, 'trustpolicy.xml'), 0664)
+    xml_parser.generate_manifestlist_xml(trustreport_instance_dir)
+    if not os.name == 'nt':
+        os.chmod(os.path.join(trustreport_instance_dir, 'manifest.xml'), 0664)
 
 def delete(args):
     try :
@@ -93,10 +100,17 @@ def init_logger():
     LOG = loging.getLogger(MODULE_NAME)
 
 def init_config():
+    bin_dir = os.path.dirname(os.path.abspath(getsourcefile(lambda:0)))
+    config_dir = os.path.join(os.path.dirname(bin_dir), 'configuration')
+    pa_prop_file = None
+    if not os.name == 'nt':
+        pa_prop_file = os.path.join(config_dir, 'policyagent.properties')
+    else:
+        pa_prop_file = os.path.join(config_dir, 'policyagent_nt.properties')
     #initialize properties
     prop_parser = ParseProperty()
     global config
-    config = prop_parser.create_property_dict(POLICY_AGENT_PROPERTIES_FILE)
+    config = prop_parser.create_property_dict(pa_prop_file)
     global vrtm_config
     vrtm_config = prop_parser.create_property_dict(config['VRTM_PROPERTIES'])
 
@@ -201,13 +215,23 @@ def container_launch(args):
             os.chmod(os.path.join(trustreport_container_dir, 'manifest.xml'), 0664)
 
         vrtm = VRTMReq()
-        xml_string = vrtm.vrtm_generate_xml('method', '-mount_path', mount_path, '-manifest', os.path.join(container_dir,'trustpolicy.xml'), '-uuid', args['container_id'], '-docker_instance')
+        xml_string = vrtm.vrtm_generate_xml('method', '-mount_path', mount_path, '-uuid', args['container_id'], '-docker_instance')
         LOG.info('vRTM Request : ')
         LOG.info(xml_string)
         vrtm.measure_vm(xml_string, {'VRTM_IP' : '127.0.0.1', 'VRTM_PORT' : '16005'})
     else :
         LOG.info("Mtwilson trustpolicy doesn not exists. Continuing with non measured launch.")
 
+def invoke_vrtm(args):
+    policy_location = os.path.join(config['INSTANCES_DIR'], '_base', args['image_id']) + '.trustpolicy.xml'
+    disk_location = os.path.join(config['INSTANCES_DIR'], args['instance_id'], 'root.vhdx')
+    xml_parser = ProcessTrustpolicyXML(policy_location)
+    create_trust_reports_dir(args, policy_location, xml_parser)
+    vrtm = VRTMReq()
+    xml_string = vrtm.vrtm_generate_xml('method', '-disk', disk_location, '-uuid', args['instance_id'])
+    LOG.info('vRTM Request : ')
+    LOG.info(xml_string)
+    vrtm.measure_vm(xml_string, {'VRTM_IP' : '127.0.0.1', 'VRTM_PORT' : '16005'})
 
 # execute only if imported as module
 if __name__ == "__main__":
@@ -226,13 +250,13 @@ if __name__ == "__main__":
         version_parser = subparsers.add_parser("version")
         version_parser.set_defaults(func = version)
         #VM launch command parser
-        launch_parser = subparsers.add_parser("launch")
+        launch_parser = subparsers.add_parser("prepare_trusted_image")
         launch_parser.add_argument("base_image")
         launch_parser.add_argument("image_id")
         launch_parser.add_argument("instance_id")
         launch_parser.add_argument("mtwilson_trustpolicy_location")
         launch_parser.add_argument("root_disk_size_gb", type=int)
-        launch_parser.set_defaults(func = launch)
+        launch_parser.set_defaults(func = prepare_trusted_image)
         #VM delete command parser
         delete_parser = subparsers.add_parser("delete")
         delete_parser.add_argument("instance_path")
@@ -250,6 +274,12 @@ if __name__ == "__main__":
         container_launch_parser.add_argument("container_id")
         container_launch_parser.add_argument("mtwilson_trustpolicy_location")
         container_launch_parser.set_defaults(func = container_launch)
+        #Invokde vrtm 
+        invoke_parser = subparsers.add_parser("invoke_vrtm")
+        invoke_parser.add_argument("base_image")
+        invoke_parser.add_argument("image_id")
+        invoke_parser.add_argument("instance_id")
+        invoke_parser.set_defaults(func = invoke_vrtm)
 
         args = parser.parse_args()
         dict_args = vars(args)

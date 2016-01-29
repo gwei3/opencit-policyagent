@@ -1,4 +1,5 @@
 import logging
+import swiftclient
 
 class TrustPolicyStore:
     MODULE_NAME = 'policyagent'
@@ -6,5 +7,5 @@ class TrustPolicyStore:
     def __init__(self):
         self.log = logging.getLogger(TrustPolicyStore.MODULE_NAME)
 
-    def getPolicy(self, image_id):
+    def getPolicy(self, args, config):
         print 'Swift store'

@@ -8,10 +8,9 @@ class TrustPolicyStore:
     def __init__(self):
         self.log = logging.getLogger(__name__)
 
-    def getPolicy(self, image_id, pa_config):
+    def getPolicy(self, args, config):
         try:
-            instances_dir = pa_config['INSTANCES_DIR']
-            tarfile = os.path.join(instances_dir.strip(), '_base', image_id)
+            tarfile = args['base_image']
             dest = tarfile + '_temp'
             if not os.path.exists(tarfile):
                 self.log.error("Image " + tarfile + " doesnot exists..")
@@ -26,22 +25,24 @@ class TrustPolicyStore:
                 #We also provide read access to trustpolicy for non root user as tagent runs as non root user.
                 for f in os.listdir(dest):
                     if f.endswith(".xml"):
-                        trust_policy = tarfile + '.trustpolicy.xml'
+                        trust_policy = os.path.join(config['INSTANCES_DIR'], '_base', args['image_id']) + '.trustpolicy.xml'
                         src = os.path.join(dest, f)
                         shutil.copy(src, trust_policy)
-                        os.chmod(trust_policy, 0644)
+                        if not os.name == 'nt':
+                            os.chmod(trust_policy, 0644)
                     else:
                         src = os.path.join(dest, f)
                         shutil.move(src, tarfile)
-                        os.chown(tarfile, st.st_uid, st.st_gid)
+                        if not os.name == 'nt':
+                            os.chown(tarfile, st.st_uid, st.st_gid)
                 shutil.rmtree(dest)
                 return trust_policy
             else:
                 #if the provided file is not a tar file then it was already downloaded and it's policy already exists
-                trust_policy = tarfile + '.trustpolicy.xml'
+                trust_policy = os.path.join(config['INSTANCES_DIR'], '_base', args['image_id']) + '.trustpolicy.xml'
                 if not os.path.exists(trust_policy):
-                    self.log.error(tarfile + ".xml" + " not exists")
-                    raise Exception(tarfile + ".xml" + " not exists")
+                    self.log.error(trust_policy + " not exists")
+                    raise Exception(trust_policy + " not exists")
                 return trust_policy
         except Exception as e:
             self.log.exception("Failed while requesting policy : "+ str(e.message))
