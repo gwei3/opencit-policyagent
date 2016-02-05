@@ -276,7 +276,6 @@ if __name__ == "__main__":
         container_launch_parser.set_defaults(func = container_launch)
         #Invokde vrtm 
         invoke_parser = subparsers.add_parser("invoke_vrtm")
-        invoke_parser.add_argument("base_image")
         invoke_parser.add_argument("image_id")
         invoke_parser.add_argument("instance_id")
         invoke_parser.set_defaults(func = invoke_vrtm)
