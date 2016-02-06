@@ -30,7 +30,7 @@ def launch(args):
             store = TrustPolicyRetrieval.trustPolicy(args['mtwilson_trustpolicy_location'])
             if store is not None:
                 #Here we get the policy from the store which we retrieved from the previous step
-                policy_location = store.getPolicy(args['image_id'], config)
+                policy_location = store.getPolicy(args['base_image_id'], config)
                 #copy the policy in the instance directory
                 shutil.copy(policy_location, os.path.join(instance_dir,'trustpolicy.xml'))
             else:
@@ -40,14 +40,19 @@ def launch(args):
                 LOG.info('Verifiying trust policy signature ...')
                 xml_parser = ProcessTrustpolicyXML(policy_location)
                 if xml_parser.verify_trust_policy_signature(config['TAGENT_LOCATION'], policy_location):
+                    if xml_parser.retrieve_image_id() != args['image_id']:
+                        LOG.exception("Image ID from trust policy doesn't match with actual image ID")
+                        LOG.error("Image ID from trustpolicy: " + xml_parser.retrieve_image_id())
+                        LOG.error("Actual Image ID: " + args['image_id'])
+                        raise Exception("Image ID mismatch")
                     #generate stripped xml with whitelist
                     xml_parser.generate_manifestlist_xml(instance_dir)
                     #retrieve encryption element which has dek_url and checksum
                     encryption_element = xml_parser.retrieve_chksm()
                     if encryption_element is not None:
                         crypt = Crypt(config=config)
-                        decfile = crypt.decrypt(image_id=args['image_id'],
-                                                image=os.path.join(config['INSTANCES_DIR'], '_base', args['image_id']),
+                        decfile = crypt.decrypt(image_id=args['base_image_id'],
+                                                image=os.path.join(config['INSTANCES_DIR'], '_base', args['base_image_id']),
                                                 dek_url=encryption_element['DEK_URL'],
                                                 instance_dir=instance_dir,
                                                 root_disk_size_gb=args['root_disk_size_gb'],
@@ -187,8 +192,9 @@ if __name__ == "__main__":
         version_parser.set_defaults(func = version)
         launch_parser = subparsers.add_parser("launch")
         launch_parser.add_argument("base_image")
-        launch_parser.add_argument("image_id")
+        launch_parser.add_argument("base_image_id")
         launch_parser.add_argument("instance_id")
+        launch_parser.add_argument("image_id")
         launch_parser.add_argument("mtwilson_trustpolicy_location")
         launch_parser.add_argument("root_disk_size_gb", type=int)
         launch_parser.set_defaults(func = launch)
