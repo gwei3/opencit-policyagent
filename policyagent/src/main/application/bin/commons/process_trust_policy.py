@@ -43,6 +43,16 @@ class ProcessTrustpolicyXML(object):
             self.log_obj.exception('Error in retrieving decryption key and checksum from XML.')
             raise e
 
+    def retrieve_image_id(self):
+        try:
+            if self.root.find('Image').find('ImageId') is not None:
+                return self.root.find('Image').find('ImageId').text
+            else:
+               return None
+        except Exception as e:
+            self.log_obj.exception('Error in retrieving image id from XML.')
+            raise e
+
     def generate_manifestlist_xml(self, instance_dir):
         new_manifest_file_path = os.path.join(instance_dir, 'manifest.xml')
         element = builder.ElementMaker()
@@ -86,4 +96,5 @@ if __name__ == '__main__':
     xml = ProcessTrustpolicyXML('trustpolicy-201509111507.xml')
     dictt = xml.retrieve_chksm()
     logging.info(dictt)
+    logging.info(xml.retrieve_image_id())
     file_path = xml.generate_manifestlist_xml('/')

@@ -34,6 +34,7 @@ class TrustPolicyStore:
                         src = os.path.join(dest, f)
                         shutil.move(src, tarfile)
                         os.chown(tarfile, st.st_uid, st.st_gid)
+                        os.chmod(tarfile, 0644)
                 shutil.rmtree(dest)
                 return trust_policy
             else:
