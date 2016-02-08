@@ -100,7 +100,7 @@ def init_logger():
     LOG = loging.getLogger(MODULE_NAME)
 
 def init_config():
-    bin_dir = os.path.dirname(os.path.abspath(getsourcefile(lambda:0)))
+    bin_dir = os.path.dirname(os.path.realpath(getsourcefile(lambda:0)))
     config_dir = os.path.join(os.path.dirname(bin_dir), 'configuration')
     pa_prop_file = None
     if not os.name == 'nt':
