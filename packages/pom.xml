@@ -9,5 +9,6 @@
 
     <modules>
         <module>mtwilson-policyagent</module>
+        <module>mtwilson-policyagent-windows</module>
     </modules>
 </project>
