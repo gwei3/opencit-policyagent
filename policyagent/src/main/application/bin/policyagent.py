@@ -28,10 +28,14 @@ def launch(args):
             policy_location = None
             instance_dir = os.path.join(config['INSTANCES_DIR'],args['instance_id'])
             #Retrieve the store module from TrustPolicyRetrieval factory depending on the trustpolicy location provided
-            store = TrustPolicyRetrieval.trustPolicy(args['mtwilson_trustpolicy_location'])
+            if args['mtwilson_trustpolicy_location'] is None:
+                LOG.exception("Mtwilson_trustpolicy_location is None")
+                raise Exception("Mtwilson_trustpolicy_location is None")
+            store = TrustPolicyRetrieval.trustPolicy(args['mtwilson_trustpolicy_location'].split(':', 1)[0])
             if store is not None:
                 #Here we get the policy from the store which we retrieved from the previous step
-                policy_location = store.getPolicy(args['base_image_id'], config)
+                policy_location = store.getPolicy(args['base_image_id'], config,
+                                            {'mtwilson_trustpolicy_location': args['mtwilson_trustpolicy_location']})
             else:
                 LOG.exception("Mtwilson_trustpolicy_location is None")
                 raise Exception("Mtwilson_trustpolicy_location is None")

@@ -8,7 +8,7 @@ class TrustPolicyStore:
     def __init__(self):
         self.log = logging.getLogger(__name__)
 
-    def getPolicy(self, image_id, pa_config):
+    def getPolicy(self, image_id, pa_config, policy_attrs):
         try:
             instances_dir = pa_config['INSTANCES_DIR']
             tarfile = os.path.join(instances_dir.strip(), '_base', image_id)
