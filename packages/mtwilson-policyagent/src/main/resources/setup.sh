@@ -203,8 +203,8 @@ load_policyagent_defaults
 ##update_property_in_file "sparsefile.size" "$POLICYAGENT_PROPERTIES_FILE" "$SPARSEFILE_SIZE"
 
 # make sure prerequisites are installed
-POLICYAGENT_YUM_PACKAGES="zip unzip python-lxml"
-POLICYAGENT_APT_PACKAGES="zip unzip python-lxml"
+POLICYAGENT_YUM_PACKAGES="zip unzip python-lxml python-swiftclient"
+POLICYAGENT_APT_PACKAGES="zip unzip python-lxml python-swiftclient"
 POLICYAGENT_YAST_PACKAGES="zip unzip python-lxml"
 POLICYAGENT_ZYPPER_PACKAGES="zip unzip python-lxml"
 auto_install "Installer requirements" "POLICYAGENT"
