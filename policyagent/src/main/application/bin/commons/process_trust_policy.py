@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import copy
 from lxml import builder, etree as ET
 import logging
 import logging.config
@@ -62,8 +63,9 @@ class ProcessTrustpolicyXML(object):
                 attr_val = node.attrib.get('DigestAlg')
             new_xml = xml_root(DigestAlg=attr_val)
             for child in self.root.find('Whitelist'):
-                child.text=None
-                new_xml.append(child)
+                final = copy.deepcopy(child)
+                final.text=None
+                new_xml.append(final)
 
             xml = ET.tostring(new_xml, pretty_print=True)
             #formatted_xml = "".join(xml.split())
@@ -92,9 +94,10 @@ class ProcessTrustpolicyXML(object):
 if __name__ == '__main__':
 
     #This is just for testing purpose.
-    logging.config.fileConfig(fname='logging_properties.cfg')
+    logging.config.fileConfig(fname='/opt/policyagent/configuration/logging_properties.cfg')
     xml = ProcessTrustpolicyXML('trustpolicy-201509111507.xml')
     dictt = xml.retrieve_chksm()
     logging.info(dictt)
     logging.info(xml.retrieve_image_id())
-    file_path = xml.generate_manifestlist_xml('/')
+    file_path = xml.generate_manifestlist_xml('/opt/')
+    file_path = xml.generate_manifestlist_xml('/tmp/')
