@@ -44,8 +44,6 @@ def launch(args):
                         LOG.error("Image ID from trustpolicy: " + xml_parser.retrieve_image_id())
                         LOG.error("Actual Image ID: " + args['image_id'])
                         raise Exception("Image ID mismatch")
-                    #generate stripped xml with whitelist
-                    xml_parser.generate_manifestlist_xml(instance_dir)
                     #retrieve encryption element which has dek_url and checksum
                     encryption_element = xml_parser.retrieve_chksm()
                     if encryption_element is not None:
@@ -63,20 +61,23 @@ def launch(args):
                         if current_md5 != encryption_element['CHECKSUM']:
                             LOG.exception("checksum mismatch")
                             raise Exception("checksum mismatch")
-                if not os.path.exists(vrtm_config['trust_report_dir']):
-                    os.mkdir(vrtm_config['trust_report_dir'])
-                    os.chmod(vrtm_config['trust_report_dir'], 0775)
-                trustreport_instance_dir = os.path.join(vrtm_config['trust_report_dir'], args['instance_id'])
-                if not os.path.exists(trustreport_instance_dir):
-                    os.mkdir(trustreport_instance_dir)
-                    os.chmod(trustreport_instance_dir, 0775)
-                shutil.copy(policy_location, os.path.join(trustreport_instance_dir,'trustpolicy.xml'))
-                os.chmod(os.path.join(trustreport_instance_dir, 'trustpolicy.xml'), 0664)
-                xml_parser.generate_manifestlist_xml(trustreport_instance_dir)
-                os.chmod(os.path.join(trustreport_instance_dir, 'manifest.xml'), 0664)
+                    if not os.path.exists(vrtm_config['trust_report_dir']):
+                        os.mkdir(vrtm_config['trust_report_dir'])
+                        os.chmod(vrtm_config['trust_report_dir'], 0775)
+                    trustreport_instance_dir = os.path.join(vrtm_config['trust_report_dir'], args['instance_id'])
+                    if not os.path.exists(trustreport_instance_dir):
+                        os.mkdir(trustreport_instance_dir)
+                        os.chmod(trustreport_instance_dir, 0775)
+                    shutil.copy(policy_location, os.path.join(trustreport_instance_dir,'trustpolicy.xml'))
+                    os.chmod(os.path.join(trustreport_instance_dir, 'trustpolicy.xml'), 0664)
+                    xml_parser.generate_manifestlist_xml(trustreport_instance_dir)
+                    os.chmod(os.path.join(trustreport_instance_dir, 'manifest.xml'), 0664)
+                else:
+                    LOG.exception("Trust policy verification failed.")
+                    raise Exception("Trust policy verification failed.")
             else:
-                LOG.exception("policy location has None value")
-                raise Exception("policy location has None value")
+                LOG.exception("Policy location has None value")
+                raise Exception("Policy location has None value")
         else:
             LOG.exception("File not found" + args['base_image'])
             raise Exception("File not found")
