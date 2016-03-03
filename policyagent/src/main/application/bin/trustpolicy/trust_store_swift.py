@@ -51,7 +51,8 @@ class TrustPolicyStore:
         storage_url, token = swiftclient.client.get_auth(auth_url=pa_config['SWIFT_AUTH_URL'],
                                                          user="{}:{}".format(pa_config['RESELLER_ACCOUNT'],
                                                                              pa_config['RESELLER_USER']),
-                                                         key=pa_config['RESELLER_PASSWORD'])
+                                                         key=pa_config['RESELLER_PASSWORD'],
+                                                         auth_version=pa_config['AUTH_VERSION'])
         self.log.debug("Authentication token received")
         return token
 
