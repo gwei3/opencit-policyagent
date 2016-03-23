@@ -207,6 +207,9 @@ def container_launch(args):
                 raise Exception("Mtwilson trustpolicy verification failed")
             xml_parser.generate_manifestlist_xml(trustreport_container_dir)
             os.chmod(os.path.join(trustreport_container_dir, 'manifest.xml'), 0664)
+        elif not xml_parser.verify_trust_policy_signature(config['TAGENT_LOCATION'], os.path.join(trustreport_container_dir, 'trustpolicy.xml')):
+            LOG.exception("Mtwilson trustpolicy verification failed")
+            raise Exception("Mtwilson trustpolicy verification failed")
 
         vrtm = VRTMReq()
         xml_string = vrtm.vrtm_generate_xml('method', '-mount_path', mount_path, '-manifest', os.path.join(container_dir,'trustpolicy.xml'), '-uuid', args['container_id'], '-docker_instance')
