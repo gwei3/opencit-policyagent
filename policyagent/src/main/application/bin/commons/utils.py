@@ -172,8 +172,18 @@ def is_encrypted_file(filename):
 def create_force_symlink(target_filename, symbolic_filename):
     try:
         LOG.info("Creating link " + symbolic_filename)
-        # os.remove(symbolic_filename)
-        os.symlink(target_filename, symbolic_filename)
+        if os.name == "nt":
+            import ctypes
+            csl = ctypes.windll.kernel32.CreateSymbolicLinkW
+            csl.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32)
+            csl.restype = ctypes.c_ubyte
+            flag = 0
+            if os.path.isdir(target_filename):
+                flag = 1
+            if csl(symbolic_filename, target_filename, flag) == 0:
+                raise csl.WinError()
+        else:
+            os.symlink(target_filename, symbolic_filename)
     except Exception as e:
         raise e
 
@@ -188,3 +198,27 @@ def copy_n_create_dir_link(source_dir, target_dir):
     except Exception as e:
         LOG.exception("Failed while creating directory symlink for " + source_dir + str(e.message))
         raise e
+
+def key_derivation_function(password, salt, key_length, iv_length):
+    #Initialize digest and intermediate digest
+    digst = digst_i = ''
+    while len(digst) < key_length + iv_length:
+        digst_i = md5(digst_i + password + salt).digest()
+        digst += digst_i
+    return digst[:key_length], digst[key_length:key_length+iv_length]
+
+def aes_decrypt(in_file, out_file, password):
+    bs = AES.block_size
+    key_length=16
+    salt = in_file.read(bs)[len('Salted__'):]
+    key, iv = key_derivation_function(password, salt, key_length, bs)
+    cipher = AES.new(key, AES.MODE_OFB, iv)
+    next_buffer = ''
+    buffer_size = bs * 1024
+    eof = False
+    while not eof:
+        buffer = next_buffer
+        next_buffer = cipher.decrypt(in_file.read(buffer_size))
+        if len(next_buffer) == 0:
+            eof = True
+        out_file.write(buffer)

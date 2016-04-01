@@ -41,8 +41,17 @@ def prepare_trusted_image(args):
                     #retrieve encryption element which has dek_url and checksum
                     encryption_element = xml_parser.retrieve_chksm()
                     if encryption_element is not None:
-                        crypt = Crypt(config=config)
-                        decfile = crypt.decrypt(image_id=args['image_id'],
+                        if not os.name == 'nt':
+                            crypt = Crypt(config=config)
+                            decfile = crypt.decrypt(image_id=args['image_id'],
+                                                image=os.path.join(config['INSTANCES_DIR'], '_base', args['image_id']),
+                                                dek_url=encryption_element['DEK_URL'],
+                                                instance_dir=instance_dir,
+                                                root_disk_size_gb=args['root_disk_size_gb'],
+                                                instance_id=args['instance_id'])
+                        else:
+                            wincrypt = WinCrypt(config=config)
+                            decfile = wincrypt.decrypt(image_id=args['image_id'],
                                                 image=os.path.join(config['INSTANCES_DIR'], '_base', args['image_id']),
                                                 dek_url=encryption_element['DEK_URL'],
                                                 instance_dir=instance_dir,
@@ -243,6 +252,7 @@ if __name__ == "__main__":
         from commons.process_trust_policy import ProcessTrustpolicyXML
         import commons.utils as utils
         from encryption.crypt import Crypt
+        from encryption.win_crypt import WinCrypt
         from invocation.measure_vm import VRTMReq
         parser = argparse.ArgumentParser()
         subparsers = parser.add_subparsers()
