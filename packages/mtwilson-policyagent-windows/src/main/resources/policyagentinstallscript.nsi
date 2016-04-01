@@ -58,6 +58,7 @@ Section "policyagent" SEC01
 
   SetOutPath "$INSTDIR\bin\encryption"
   File "bin/encryption/crypt.py"
+  File "bin/encryption/win_crypt.py"
   File "bin/encryption/__init__.py"
 
   SetOutPath "$INSTDIR\bin\invocation"
@@ -166,6 +167,8 @@ Section Uninstall
   Delete "$INSTDIR\bin\encryption\__init__.pyc"
   Delete "$INSTDIR\bin\encryption\crypt.pyc"
   Delete "$INSTDIR\bin\encryption\crypt.py"
+  Delete "$INSTDIR\bin\encryption\win_crypt.pyc"
+  Delete "$INSTDIR\bin\encryption\win_crypt.py"
   Delete "$INSTDIR\bin\commons\__init__.pyc"
   Delete "$INSTDIR\bin\commons\__init__.py"
   Delete "$INSTDIR\bin\commons\utils.pyc"
