@@ -213,6 +213,7 @@ Section Uninstall
   Delete "$INSTDIR\bin\commons\parse.pyc"
   Delete "$INSTDIR\bin\commons\parse.py"
   Delete "$INSTDIR\scripts\bitlocker_drive_setup.ps1"
+  Delete "$INSTDIR\logs\bitlockersetup.log"
 
   Delete "$SMPROGRAMS\PolicyAgent\Uninstall.lnk"
 
