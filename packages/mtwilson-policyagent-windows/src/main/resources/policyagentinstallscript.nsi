@@ -10,6 +10,8 @@
 
 ; MUI 1.67 compatible ------
 !include "MUI.nsh"
+!include nsDialogs.nsh
+!include psexec.nsh
 
 ; MUI Settings
 !define MUI_ABORTWARNING
@@ -24,6 +26,9 @@
 !insertmacro MUI_PAGE_DIRECTORY
 ; Instfiles page
 !insertmacro MUI_PAGE_INSTFILES
+
+Page Custom bitlockerstart bitlockerend
+
 ; Finish page
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README.txt"
 !insertmacro MUI_PAGE_FINISH
@@ -35,6 +40,32 @@
 !insertmacro MUI_LANGUAGE "English"
 
 ; MUI end ------
+
+Function bitlockerstart
+Var /Global DriveLetter
+nsDialogs::Create /NOUNLOAD 1018
+Pop $0
+${NSD_CreateLabel} 0 0 100% 20% "Drive to be used for creating bitlocker encrypted volume."
+${NSD_CreateLabel} 0 10% 50% 10% "Drive Letter (eg 'D:')"
+${NSD_CreateText}  0 20% 20% 10% "C:"
+Pop $DriveLetter
+nsDialogs::Show
+FunctionEnd
+
+Function bitlockerend
+# TODO add validation of input
+${NSD_GetText} $DriveLetter $0
+#MessageBox mb_ok $0
+${PowerShellExec} "& '$INSTDIR\scripts\bitlocker_drive_setup.ps1' $0 > '$INSTDIR\logs\bitlockersetup.log'"
+Pop $R1
+Var /GLOBAL status
+#MessageBox mb_ok $R1
+Strcpy $status $R1
+
+${If} $status != "True"
+		MessageBox mb_ok "Bitlocker drive setup failed. Please check log file '$INSTDIR\logs\bitlockersetup.log'"
+${EndIf}
+FunctionEnd
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
 OutFile "Installer.exe"
@@ -48,7 +79,7 @@ Section "policyagent" SEC01
 
   # Copy files to installation directory
  
- # bin directory
+  # bin directory
   SetOutPath "$INSTDIR\bin\commons"
   SetOverwrite try
   File "bin/commons/parse.py"
@@ -82,7 +113,11 @@ Section "policyagent" SEC01
   SetOutPath "$INSTDIR\configuration"
   File "configuration/logging_properties.cfg"
   File "configuration/policyagent_nt.properties"
-
+  
+  # scripts directory
+  SetOutPath "$INSTDIR\scripts"
+  File "scripts/bitlocker_drive_setup.ps1"
+  
   # env directory
   SetOutPath "$INSTDIR\env"
   
@@ -177,6 +212,7 @@ Section Uninstall
   Delete "$INSTDIR\bin\commons\process_trust_policy.py"
   Delete "$INSTDIR\bin\commons\parse.pyc"
   Delete "$INSTDIR\bin\commons\parse.py"
+  Delete "$INSTDIR\scripts\bitlocker_drive_setup.ps1"
 
   Delete "$SMPROGRAMS\PolicyAgent\Uninstall.lnk"
 
@@ -190,6 +226,7 @@ Section Uninstall
   RMDir "$INSTDIR\bin"
   RMDir "$INSTDIR\logs"
   RMDir "$INSTDIR\repository"
+  RMDir "$INSTDIR\scripts"
   RMDir "$INSTDIR"
 
   # Remove system environment variable POLICYAGENT_HOME
