@@ -11,7 +11,7 @@
 ; MUI 1.67 compatible ------
 !include "MUI.nsh"
 !include nsDialogs.nsh
-!include psexec.nsh
+!include "x64.nsh"
 
 ; MUI Settings
 !define MUI_ABORTWARNING
@@ -56,15 +56,18 @@ Function bitlockerend
 # TODO add validation of input
 ${NSD_GetText} $DriveLetter $0
 #MessageBox mb_ok $0
-${PowerShellExec} "& '$INSTDIR\scripts\bitlocker_drive_setup.ps1' $0 > '$INSTDIR\logs\bitlockersetup.log'"
-Pop $R1
-Var /GLOBAL status
-#MessageBox mb_ok $R1
-Strcpy $status $R1
 
-${If} $status != "True"
-		MessageBox mb_ok "Bitlocker drive setup failed. Please check log file '$INSTDIR\logs\bitlockersetup.log'"
+${If} ${RunningX64}
+    ${DisableX64FSRedirection}
+
+    nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\bitlocker_drive_setup.ps1" $0  '
+    Pop $0 # return value/error/timeout
+    Pop $1 # printed text, up to ${NSIS_MAX_STRLEN}
+
+    ${EnableX64FSRedirection}
 ${EndIf}
+
+MessageBox mb_ok "Bitlocker drive setup complete. Please check log file '$INSTDIR\logs\bitlockersetup.log' for more details"
 FunctionEnd
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
