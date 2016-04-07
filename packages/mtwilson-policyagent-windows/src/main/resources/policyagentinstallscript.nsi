@@ -67,7 +67,7 @@ ${If} ${RunningX64}
     ${EnableX64FSRedirection}
 ${EndIf}
 
-MessageBox mb_ok "Bitlocker drive setup complete. Please check log file '$INSTDIR\logs\bitlockersetup.log' for more details"
+MessageBox mb_ok "Bitlocker drive setup complete. Please check log file '$INSTDIR\logs\bitlockersetup.log' for more details."
 FunctionEnd
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
@@ -105,6 +105,7 @@ Section "policyagent" SEC01
   File "bin/policyagent-init"
   File "bin/policyagent.py"
   File "bin/__init__.py"
+  File "bin/BitLocker.exe"
 
   SetOutPath "$INSTDIR\bin\trustpolicy"
   File "bin/trustpolicy/trust_policy_retrieval.py"
@@ -120,6 +121,7 @@ Section "policyagent" SEC01
   # scripts directory
   SetOutPath "$INSTDIR\scripts"
   File "scripts/bitlocker_drive_setup.ps1"
+  File "scripts/unlock_bitlocker_drive.ps1"
   
   # env directory
   SetOutPath "$INSTDIR\env"
@@ -193,6 +195,7 @@ Section Uninstall
   Delete "$INSTDIR\bin\policyagent.py"
   Delete "$INSTDIR\bin\policyagent.pyc"
   Delete "$INSTDIR\bin\policyagent-init"
+  Delete "$INSTDIR\bin\BitLocker.exe"
   Delete "$INSTDIR\bin\invocation\vrtm_invoke.py"
   Delete "$INSTDIR\bin\invocation\vrtm_invoke.pyc"
   Delete "$INSTDIR\bin\invocation\stream.py"
@@ -216,7 +219,7 @@ Section Uninstall
   Delete "$INSTDIR\bin\commons\parse.pyc"
   Delete "$INSTDIR\bin\commons\parse.py"
   Delete "$INSTDIR\scripts\bitlocker_drive_setup.ps1"
-  Delete "$INSTDIR\logs\bitlockersetup.log"
+  Delete "$INSTDIR\scripts\unlock_bitlocker_drive.ps1"
 
   Delete "$SMPROGRAMS\PolicyAgent\Uninstall.lnk"
 
