@@ -59,15 +59,23 @@ ${NSD_GetText} $DriveLetter $0
 
 ${If} ${RunningX64}
     ${DisableX64FSRedirection}
-
-    nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\bitlocker_drive_setup.ps1" $0  '
-    Pop $0 # return value/error/timeout
-    Pop $1 # printed text, up to ${NSIS_MAX_STRLEN}
+	Var /Global property
+	Strcpy $property "MOUNT_LOCATION"
+	Var /Global property_file
+	Strcpy $property_file "$INSTDIR\configuration\policyagent_nt.properties"
+	#Update MOUNT_LOCATION property
+	nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\update_property.ps1" "$property_file" $property $0  '
+	
+	#Setup bitlocker drive
+    	nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\bitlocker_drive_setup.ps1" $0  '
+    	Pop $0 # return value/error/timeout
+    	Pop $1 # printed text, up to ${NSIS_MAX_STRLEN}
 
     ${EnableX64FSRedirection}
 ${EndIf}
 
 MessageBox mb_ok "Bitlocker drive setup complete. Please check log file '$INSTDIR\logs\bitlockersetup.log' for more details."
+
 FunctionEnd
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
@@ -122,15 +130,14 @@ Section "policyagent" SEC01
   SetOutPath "$INSTDIR\scripts"
   File "scripts/bitlocker_drive_setup.ps1"
   File "scripts/unlock_bitlocker_drive.ps1"
+  File "scripts/update_property.ps1"
+  File "scripts/free_bitlocker_drive.ps1"
   
   # env directory
   SetOutPath "$INSTDIR\env"
   
   # logs directory
   SetOutPath "$INSTDIR\logs"
-
-  # repository directory
-  SetOutPath "$INSTDIR\repository"
 
   SetOverwrite ifnewer
 
@@ -178,6 +185,16 @@ Function un.onInit
 FunctionEnd
 
 Section Uninstall
+
+  ${If} ${RunningX64}
+    ${DisableX64FSRedirection}
+	Strcpy $property "MOUNT_LOCATION"
+	Strcpy $property_file "$INSTDIR\configuration\policyagent_nt.properties"
+	#Update MOUNT_LOCATION property
+	nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\free_bitlocker_drive.ps1" "$property_file" $property  '
+
+    ${EnableX64FSRedirection}
+  ${EndIf}
   Delete "$INSTDIR\uninst.exe"
   Delete "$INSTDIR\README.txt"
   Delete "$INSTDIR\configuration\policyagent_nt.properties"
@@ -220,6 +237,8 @@ Section Uninstall
   Delete "$INSTDIR\bin\commons\parse.py"
   Delete "$INSTDIR\scripts\bitlocker_drive_setup.ps1"
   Delete "$INSTDIR\scripts\unlock_bitlocker_drive.ps1"
+  Delete "$INSTDIR\scripts\update_property.ps1"
+  Delete "$INSTDIR\scripts\free_bitlocker_drive.ps1"
 
   Delete "$SMPROGRAMS\PolicyAgent\Uninstall.lnk"
 
@@ -232,7 +251,6 @@ Section Uninstall
   RMDir "$INSTDIR\bin\commons"
   RMDir "$INSTDIR\bin"
   RMDir "$INSTDIR\logs"
-  RMDir "$INSTDIR\repository"
   RMDir "$INSTDIR\scripts"
   RMDir "$INSTDIR"
 
