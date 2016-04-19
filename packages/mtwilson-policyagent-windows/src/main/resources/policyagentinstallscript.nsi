@@ -47,7 +47,7 @@ nsDialogs::Create /NOUNLOAD 1018
 Pop $0
 ${NSD_CreateLabel} 0 0 100% 20% "Drive to be used for creating bitlocker encrypted volume."
 ${NSD_CreateLabel} 0 10% 50% 10% "Drive Letter (eg 'D:')"
-${NSD_CreateText}  0 20% 20% 10% "C:"
+${NSD_CreateText}  0 20% 20% 10% "D:"
 Pop $DriveLetter
 nsDialogs::Show
 FunctionEnd
@@ -191,10 +191,14 @@ Section Uninstall
 	Strcpy $property "MOUNT_LOCATION"
 	Strcpy $property_file "$INSTDIR\configuration\policyagent_nt.properties"
 	#Update MOUNT_LOCATION property
-	nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\free_bitlocker_drive.ps1" "$property_file" $property  '
+	nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\free_bitlocker_drive.ps1" "$property_file" $property'
 
     ${EnableX64FSRedirection}
   ${EndIf}
+
+  nsExec::Exec 'sc stop UnlockDrive'
+  nsExec::Exec 'sc delete UnlockDrive'
+
   Delete "$INSTDIR\uninst.exe"
   Delete "$INSTDIR\README.txt"
   Delete "$INSTDIR\configuration\policyagent_nt.properties"

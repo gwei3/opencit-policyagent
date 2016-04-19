@@ -1,6 +1,6 @@
 @echo off
 REM #####################################################################
-REM This script build the vRTM on windows platform
+REM This script build the bitlocker service on windows platform
 REM #####################################################################
 setlocal enabledelayedexpansion
 
@@ -17,12 +17,12 @@ IF NOT %ERRORLEVEL% EQU 0 (
   EXIT /b %ERRORLEVEL%
 )
 
-msbuild BitLocker.sln /property:Configuration=Debug
+msbuild BitLocker.sln /property:Configuration=Release
 IF NOT %ERRORLEVEL% EQU 0 (
   echo. %me%: Build Failed
   EXIT /b %ERRORLEVEL%
 )
 
-cp BitLocker\Release\bin\BitLocker.exe ..\policyagent\src\main\application\bin\
+cp BitLocker\bin\Release\BitLocker.exe ../policyagent/src/main/application/bin/
 
 endlocal

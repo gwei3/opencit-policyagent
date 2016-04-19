@@ -31,10 +31,12 @@ Else
 }
 
 $key_file = "C:\Program Files (x86)\Intel\Policy Agent\configuration\bitlocker.key"
-Get-Random | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString | Out-File $key_file
+Get-Random | Out-File $key_file
+
+#Get-Random | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString | Out-File $key_file
 (Get-Date).ToString() + " Key generated for bit-locker drive at " + $key_file | Out-file $log_file -Append
 
-$SecureString = Get-Content $key_file | ConvertTo-SecureString
+$SecureString = Get-Content $key_file | ConvertTo-SecureString -AsPlainText -Force
 
 Add-BitLockerKeyProtector -MountPoint $drive -Password $SecureString -PasswordProtector
 
@@ -64,6 +66,10 @@ If($?)
 #Register service which calls binary to unlock drive after boot
 New-Service -Name UnlockDrive -BinaryPathName "C:\Program Files (x86)\Intel\Policy Agent\bin\BitLocker.exe" -DisplayName "Unlock Drive" -StartupType Automatic
 (Get-Date).ToString() + " UnlockDrive registered as autostart service to unlock drive on bootup of machine" | Out-file $log_file -Append
+
+#Start UnlockDrive service
+Start-Service UnlockDrive
+(Get-Date).ToString() + " UnlockDrive service started" | Out-file $log_file -Append
 
 "######################## Bitlocker drive setup complete for $drive ############################" | Out-file $log_file -Append
 

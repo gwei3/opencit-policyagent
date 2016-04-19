@@ -23,13 +23,13 @@ public enum ServiceState
 [StructLayout(LayoutKind.Sequential)]
 public struct ServiceStatus
 {
-    public long dwServiceType;
+    public uint dwServiceType;
     public ServiceState dwCurrentState;
-    public long dwControlsAccepted;
-    public long dwWin32ExitCode;
-    public long dwServiceSpecificExitCode;
-    public long dwCheckPoint;
-    public long dwWaitHint;
+    public uint dwControlsAccepted;
+    public uint dwWin32ExitCode;
+    public uint dwServiceSpecificExitCode;
+    public uint dwCheckPoint;
+    public uint dwWaitHint;
 };
 
 namespace BitLocker
