@@ -64,7 +64,7 @@ If($?)
 
 
 #Register service which calls binary to unlock drive after boot
-New-Service -Name UnlockDrive -BinaryPathName "C:\Program Files (x86)\Intel\Policy Agent\bin\BitLocker.exe" -DisplayName "Unlock Drive" -StartupType Automatic
+New-Service -Name UnlockDrive -BinaryPathName "C:\Program Files (x86)\Intel\Policy Agent\bin\BitLocker.exe" -DisplayName "Intel CIT UnlockDrive" -StartupType Automatic
 (Get-Date).ToString() + " UnlockDrive registered as autostart service to unlock drive on bootup of machine" | Out-file $log_file -Append
 
 #Start UnlockDrive service

@@ -8,9 +8,9 @@ set me=%~n0
 set pwd=%~dp0
 
 set VsDevCmd="C:\Program Files (x86)\Microsoft Visual Studio 12.0\Common7\Tools\VsDevCmd.bat"
-
 echo. Building biltlocker service....
-cd
+cd %pwd%
+
 call %VsDevCmd%
 IF NOT %ERRORLEVEL% EQU 0 (
   echo. %me%: Visual Studio Dev Env could not be set
@@ -23,6 +23,6 @@ IF NOT %ERRORLEVEL% EQU 0 (
   EXIT /b %ERRORLEVEL%
 )
 
-cp BitLocker\bin\Release\BitLocker.exe ../policyagent/src/main/application/bin/
+copy BitLocker\bin\Release\BitLocker.exe ..\policyagent\src\main\application\bin /y
 
 endlocal
