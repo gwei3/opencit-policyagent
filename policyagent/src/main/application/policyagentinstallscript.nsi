@@ -27,7 +27,10 @@
 ; Instfiles page
 !insertmacro MUI_PAGE_INSTFILES
 
-Page Custom bitlockerstart bitlockerend
+Page Custom getVolumeStart getVolumeEnd
+Page Custom getSizeStart getSizeEnd
+Page Custom getDriveLetterStart getDriveLetterEnd
+;Page Custom bitlockerstart bitlockerend
 
 ; Finish page
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README.txt"
@@ -41,37 +44,157 @@ Page Custom bitlockerstart bitlockerend
 
 ; MUI end ------
 
-Function bitlockerstart
-Var /Global DriveLetter
+Var /Global drive
+VAR /Global size
+Var /Global MyTextbox
+Var /Global MyTextbox1
+Var /Global MyTextbox2
+Var /Global radiobutton1
+Var /Global radiobutton2
+Var /Global radiobutton2_state
+Var /Global property
+Var /Global property_file
+
+
+Function getVolumeStart
+
+${If} $drive == ""
+      Strcpy $drive "C"
+${EndIf}
+
 nsDialogs::Create /NOUNLOAD 1018
 Pop $0
-${NSD_CreateLabel} 0 0 100% 20% "Drive to be used for creating bitlocker encrypted volume."
-${NSD_CreateLabel} 0 10% 50% 10% "Drive Letter (eg 'D:')"
-${NSD_CreateText}  0 20% 20% 10% "D:"
-Pop $DriveLetter
+;${NSD_CreateLabel} 0 0 100% 20% "Drive to be used for shrinking space?"
+${NSD_CreateLabel} 0 0% 50% 10% "Drive Letter (eg 'C')"
+${NSD_CreateText}  0 10% 20% 10% "$drive"
+${NSD_CreateRadioButton} 0 20% 100% 10% "Use drive to create new partition."
+Pop $radiobutton1
+${NSD_CreateRadioButton} 0 30% 100% 10% "Use drive as a new partition."
+Pop $radiobutton2
+${NSD_SetState} $radiobutton1 ${BST_CHECKED}
+Pop $MyTextbox
 nsDialogs::Show
 FunctionEnd
 
-Function bitlockerend
-# TODO add validation of input
-${NSD_GetText} $DriveLetter $0
-#MessageBox mb_ok $0
+Function getVolumeEnd
+${NSD_GetText} $MyTextbox $0
+Strcpy $drive $0
+;${NSD_GetState} $radiobutton1 $radiobutton1_state
+${NSD_GetState} $radiobutton2 $radiobutton2_state
 
+nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\ps_utility.ps1" "isDriveExist" "$drive"  '
+pop $R1
+pop $R2
+;MessageBox mb_ok $R2
+
+${If} $R2 == "False$\r$\n"
+      MessageBox mb_ok "Drive $drive does not exist"
+      Abort
+${EndIf}
+Strcpy $property "MOUNT_LOCATION"
+Strcpy $property_file "$INSTDIR\configuration\policyagent_nt.properties"
+${If} $radiobutton2_state == ${BST_CHECKED}
+      ${If} ${RunningX64}
+            ${DisableX64FSRedirection}
+	    #Update MOUNT_LOCATION property
+	    nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\update_property.ps1" "$property_file" "$property" "$drive"  '
+	    
+	    nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\bitlocker_drive_setup.ps1" $drive  '
+            ${EnableX64FSRedirection}
+            
+            MessageBox mb_ok "Bitlocker drive setup complete. Please check log file '$INSTDIR\logs\bitlockersetup.log' for more details."
+            
+      ${EndIf}
+${EndIf}
+FunctionEnd
+
+Function getSizeStart
+${If} $radiobutton2_state == ${BST_CHECKED}
+      Abort
+${EndIf}
+FileOpen $9 diskpartscript.txt w ;Opens a Empty File an fills it
+FileWrite $9 "select volume $drive$\r$\n"
+FileWrite $9 "shrink querymax"
+FileClose $9 ;Closes the filled file
+
+nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\ps_utility.ps1" "getFreeSpace"  '
+pop $R1
+pop $R2
+;MessageBox mb_ok $R2
+
+nsDialogs::Create /NOUNLOAD 1018
+Pop $0
+${NSD_CreateLabel} 0 0 100% 20% "The maximum number of reclaimable size : $R2"
+${NSD_CreateLabel} 0 10% 50% 10% "Size to shrink(MB)"
+${NSD_CreateText}  0 20% 20% 10% ""
+Pop $MyTextbox1
+nsDialogs::Show
+FunctionEnd
+
+Function getSizeEnd
 ${If} ${RunningX64}
     ${DisableX64FSRedirection}
-	Var /Global property
-	Strcpy $property "MOUNT_LOCATION"
-	Var /Global property_file
-	Strcpy $property_file "$INSTDIR\configuration\policyagent_nt.properties"
-	#Update MOUNT_LOCATION property
-	nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\update_property.ps1" "$property_file" $property $0  '
-	
-	#Setup bitlocker drive
-    	nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\bitlocker_drive_setup.ps1" $0  '
-    	Pop $0 # return value/error/timeout
-    	Pop $1 # printed text, up to ${NSIS_MAX_STRLEN}
-
+        nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\ps_utility.ps1" "getDiskNumber" "$drive"  '
+        pop $R1
+        pop $R2
+        VAR /Global diskNumber
+        Strcpy $diskNumber $R2
+        ;MessageBox mb_ok $R2
     ${EnableX64FSRedirection}
+${Else}
+       MessageBox mb_ok "Diskpart automation requires x64 system."
+       Abort
+${EndIf}
+${NSD_GetText} $MyTextbox1 $0
+Strcpy $size $0
+FunctionEnd
+
+Function getDriveLetterStart
+${If} $radiobutton2_state == ${BST_CHECKED}
+      Abort
+${EndIf}
+nsDialogs::Create /NOUNLOAD 1018
+Pop $0
+${NSD_CreateLabel} 0 0 100% 20% "Provide unique drive letter to be assigned to new volume?"
+${NSD_CreateLabel} 0 10% 50% 10% "Drive Letter (eg 'Z')"
+${NSD_CreateText}  0 20% 20% 10% "Z"
+Pop $MyTextbox2
+nsDialogs::Show
+FunctionEnd
+
+Function getDriveLetterEnd
+
+${NSD_GetText} $MyTextbox2 $0
+
+nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\ps_utility.ps1" "isDriveExist" "$0"  '
+pop $R1
+pop $R2
+${If} $R2 == "True$\r$\n"
+        MessageBox MB_OK "Drive $drive alreay exist. Please provide unique name."
+        Abort
+${EndIf}
+;MessageBox mb_ok $R2
+
+FileOpen $9 diskpartscript.txt w ;Opens a Empty File an fills it
+FileWrite $9 "select volume $drive$\r$\n"
+FileWrite $9 "shrink desired=$size$\r$\n"
+FileWrite $9 "select disk $diskNumber"
+FileWrite $9 "create partition primary size=$size$\r$\n"
+FileWrite $9 "format quick fs=ntfs$\r$\n"
+FileWrite $9 "assign letter=$0$\r$\n"
+FileClose $9 ;Closes the filled file
+
+nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\ps_utility.ps1" "createFinalPartition"  '
+pop $R1
+pop $R2
+
+${If} ${RunningX64}
+      ${DisableX64FSRedirection}
+      #Update MOUNT_LOCATION property
+      nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\update_property.ps1" "$property_file" "$property" "$0"  '
+      
+      nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\bitlocker_drive_setup.ps1" $0  '
+      ${EnableX64FSRedirection}
 ${EndIf}
 
 MessageBox mb_ok "Bitlocker drive setup complete. Please check log file '$INSTDIR\logs\bitlockersetup.log' for more details."
@@ -132,6 +255,7 @@ Section "policyagent" SEC01
   File "scripts\unlock_bitlocker_drive.ps1"
   File "scripts\update_property.ps1"
   File "scripts\free_bitlocker_drive.ps1"
+  File "scripts\ps_utility.ps1"
   
   # env directory
   SetOutPath "$INSTDIR\env"
@@ -243,6 +367,7 @@ Section Uninstall
   Delete "$INSTDIR\scripts\unlock_bitlocker_drive.ps1"
   Delete "$INSTDIR\scripts\update_property.ps1"
   Delete "$INSTDIR\scripts\free_bitlocker_drive.ps1"
+  Delete "$INSTDIR\scripts\ps_utility.ps1"
 
   Delete "$SMPROGRAMS\PolicyAgent\Uninstall.lnk"
 

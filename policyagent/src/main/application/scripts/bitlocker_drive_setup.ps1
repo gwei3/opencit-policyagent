@@ -43,7 +43,7 @@ Add-BitLockerKeyProtector -MountPoint $drive -Password $SecureString -PasswordPr
 If($?)
 {
 	(Get-Date).ToString() + " Password added as protector for drive $drive" | Out-file $log_file -Append
-	manage-bde -on $drive
+	manage-bde -on $drive":"
 	while($?)
 	{
 		$status = Get-BitLockerVolume -MountPoint $drive  | fl EncryptionPercentage | findstr.exe EncryptionPercentage
