@@ -11,9 +11,10 @@ IF "%NSIS_HOME%"=="" (
   set "makensis=%NSIS_HOME%\makensis.exe"
 )
 
-IF %1=="" (
+REM ~ is to remove "" from argument passed with quotes
+IF "%~1"=="" (
   call:print_help
-) ELSE IF %2=="" (
+) ELSE IF "%~2"=="" (
   call:print_help
 ) ELSE (
   call:pa_installer %1 %2

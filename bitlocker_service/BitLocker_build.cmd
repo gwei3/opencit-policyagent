@@ -9,9 +9,10 @@ set pwd=%~dp0
 
 set VsDevCmd="C:\Program Files (x86)\Microsoft Visual Studio 12.0\Common7\Tools\VsDevCmd.bat"
 
-IF %1=="" (
+REM ~ is to remove "" from argument passed with quotes
+IF "%~1"=="" (
   call:print_help
-) ELSE IF %2=="" (
+) ELSE IF "%~2"=="" (
   call:print_help
 ) ELSE (
   call:ps_service_build %2 %1
