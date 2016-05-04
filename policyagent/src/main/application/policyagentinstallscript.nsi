@@ -21,8 +21,9 @@
 ; Welcome page
 !insertmacro MUI_PAGE_WELCOME
 ; License page
-#!insertmacro MUI_PAGE_LICENSE "license.txt"
+;!insertmacro MUI_PAGE_LICENSE "license.txt"
 ; Directory page
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW DirectoryPageShow
 !insertmacro MUI_PAGE_DIRECTORY
 ; Instfiles page
 !insertmacro MUI_PAGE_INSTFILES
@@ -33,6 +34,7 @@ Page Custom getDriveLetterStart getDriveLetterEnd
 ;Page Custom bitlockerstart bitlockerend
 
 ; Finish page
+!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README.txt"
 !insertmacro MUI_PAGE_FINISH
 
@@ -55,6 +57,13 @@ Var /Global radiobutton2_state
 Var /Global property
 Var /Global property_file
 
+Function DirectoryPageShow
+	FindWindow $R0 "#32770" "" $HWNDPARENT
+	GetDlgItem $R1 $R0 1019
+	EnableWindow $R1 0
+	GetDlgItem $R1 $R0 1001
+	EnableWindow $R1 0
+FunctionEnd
 
 Function getVolumeStart
 
@@ -93,17 +102,18 @@ ${If} $R2 == "False$\r$\n"
 ${EndIf}
 Strcpy $property "MOUNT_LOCATION"
 Strcpy $property_file "$INSTDIR\configuration\policyagent_nt.properties"
+
 ${If} $radiobutton2_state == ${BST_CHECKED}
       ${If} ${RunningX64}
             ${DisableX64FSRedirection}
+
 	    #Update MOUNT_LOCATION property
 	    nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\update_property.ps1" "$property_file" "$property" "$drive"  '
-	    
 	    nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\bitlocker_drive_setup.ps1" $drive  '
-            ${EnableX64FSRedirection}
             
             MessageBox mb_ok "Bitlocker drive setup complete. Please check log file '$INSTDIR\logs\bitlockersetup.log' for more details."
-            
+
+            ${EnableX64FSRedirection}
       ${EndIf}
 ${EndIf}
 FunctionEnd
@@ -190,10 +200,11 @@ pop $R2
 
 ${If} ${RunningX64}
       ${DisableX64FSRedirection}
+
       #Update MOUNT_LOCATION property
       nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\update_property.ps1" "$property_file" "$property" "$0"  '
-      
       nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\bitlocker_drive_setup.ps1" $0  '
+
       ${EnableX64FSRedirection}
 ${EndIf}
 
@@ -263,8 +274,6 @@ Section "policyagent" SEC01
   # logs directory
   SetOutPath "$INSTDIR\logs"
 
-  SetOverwrite ifnewer
-
   # Create System Environment Variable - POLICYAGENT_HOME
   !define env_hklm 'HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"'
   !define env_hkcu 'HKCU "Environment"'
@@ -299,19 +308,19 @@ SectionEnd
 
 
 Function un.onUninstSuccess
-  HideWindow
-  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) was successfully removed from your computer."
+;  HideWindow
+;  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) was successfully removed from your computer."
 FunctionEnd
 
 Function un.onInit
-  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "Are you sure you want to completely remove $(^Name) and all of its components?" IDYES +2
-  Abort
+;  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "Are you sure you want to completely remove $(^Name) and all of its components?" IDYES +2
+;  Abort
 FunctionEnd
 
 Section Uninstall
-
   ${If} ${RunningX64}
     ${DisableX64FSRedirection}
+
 	Strcpy $property "MOUNT_LOCATION"
 	Strcpy $property_file "$INSTDIR\configuration\policyagent_nt.properties"
 	#Update MOUNT_LOCATION property
@@ -370,7 +379,6 @@ Section Uninstall
   Delete "$INSTDIR\scripts\ps_utility.ps1"
 
   Delete "$SMPROGRAMS\PolicyAgent\Uninstall.lnk"
-
   RMDir "$SMPROGRAMS\PolicyAgent"
   RMDir "$INSTDIR\env"
   RMDir "$INSTDIR\configuration"
