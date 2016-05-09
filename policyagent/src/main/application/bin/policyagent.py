@@ -215,8 +215,12 @@ def container_launch(args):
             LOG.exception("Mtwilson trustpolicy verification failed")
             raise Exception("Mtwilson trustpolicy verification failed")
 
+        container_name = args['container_name']
+        if args['container_name'].startswith('/'):
+            container_name = args['container_name'][1:]
+
         vrtm = VRTMReq()
-        xml_string = vrtm.vrtm_generate_xml('method', '-mount_path', mount_path, '-manifest', os.path.join(container_dir,'trustpolicy.xml'), '-uuid', args['container_id'], '-name', args['container_name'], '-docker_instance')
+        xml_string = vrtm.vrtm_generate_xml('method', '-mount_path', mount_path, '-manifest', os.path.join(container_dir,'trustpolicy.xml'), '-uuid', args['container_id'], '-name', container_name, '-docker_instance')
         LOG.info('vRTM Request : ')
         LOG.info(xml_string)
         vrtm.measure_vm(xml_string, {'VRTM_IP' : '127.0.0.1', 'VRTM_PORT' : '16005'})
