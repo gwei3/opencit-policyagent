@@ -3,7 +3,7 @@
 ; HM NIS Edit Wizard helper defines
 !define PRODUCT_NAME "Policy Agent"
 !define PRODUCT_VERSION "1.0"
-!define PRODUCT_PUBLISHER "Intel, Inc."
+!define PRODUCT_PUBLISHER "Intel Corporation"
 !define PRODUCT_WEB_SITE "http://www.intel.com"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
@@ -34,8 +34,8 @@ Page Custom getDriveLetterStart getDriveLetterEnd
 ;Page Custom bitlockerstart bitlockerend
 
 ; Finish page
-!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
-!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README.txt"
+;!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
+;!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README.txt"
 !insertmacro MUI_PAGE_FINISH
 
 ; Uninstaller pages
@@ -66,7 +66,6 @@ Function DirectoryPageShow
 FunctionEnd
 
 Function getVolumeStart
-
 ${If} $drive == ""
       Strcpy $drive "C"
 ${EndIf}
@@ -163,6 +162,7 @@ Function getDriveLetterStart
 ${If} $radiobutton2_state == ${BST_CHECKED}
       Abort
 ${EndIf}
+
 nsDialogs::Create /NOUNLOAD 1018
 Pop $0
 ${NSD_CreateLabel} 0 0 100% 20% "Provide unique drive letter to be assigned to new volume?"
@@ -173,7 +173,6 @@ nsDialogs::Show
 FunctionEnd
 
 Function getDriveLetterEnd
-
 ${NSD_GetText} $MyTextbox2 $0
 
 nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\ps_utility.ps1" "isDriveExist" "$0"  '
@@ -209,7 +208,6 @@ ${If} ${RunningX64}
 ${EndIf}
 
 MessageBox mb_ok "Bitlocker drive setup complete. Please check log file '$INSTDIR\logs\bitlockersetup.log' for more details."
-
 FunctionEnd
 
 Name "${PRODUCT_NAME}"
@@ -333,7 +331,9 @@ Section Uninstall
   nsExec::Exec 'sc delete UnlockDrive'
 
   Delete "$INSTDIR\uninst.exe"
-  Delete "$INSTDIR\README.txt"
+  Delete "$INSTDIR\logs\bitlockersetup.log"
+  Delete "$INSTDIR\logs\diskpartscript.txt"
+  Delete "$INSTDIR\configuration\bitlocker.key"
   Delete "$INSTDIR\configuration\policyagent_nt.properties"
   Delete "$INSTDIR\configuration\logging_properties.cfg"
   Delete "$INSTDIR\bin\__init__.py"
