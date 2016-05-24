@@ -47,6 +47,7 @@ def get_loop_device(sparse_file_path):
 
         make_proc = create_subprocess(['losetup', '--find'], None)
         output = call_subprocess(make_proc)
+        loop_dev = None
         if make_proc.returncode == 0:
             loop_dev = output[0]
         if loop_dev is None:
@@ -59,7 +60,7 @@ def get_loop_device(sparse_file_path):
                         count += 1
             device_name = '/dev/loop' + str(count)
             device = os.makedev(7, count)
-            os.mknod(device_name, 0660 | stat.S_ISBLK, device)
+            os.mknod(device_name, 0660 | stat.S_IFBLK, device)
             make_proc = create_subprocess(['losetup', '--find'])
             output = call_subprocess(make_proc)
             if make_proc.returncode == 0:
