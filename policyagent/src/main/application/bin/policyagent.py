@@ -140,6 +140,7 @@ def remount():
             LOG.debug("Creating and mounting encrypted device: {0}".format(image_id))
             crypt.create_encrypted_device(image_id, os.path.join(config['MOUNT_LOCATION'], image_id),
                                           os.path.join(config['DISK_LOCATION'], image_id), key_path, False)
+            os.remove(key_path)
         except Exception as e:
             LOG.error('Failed while mounting encrypted device: {0}'.format(enc_file))
             LOG.exception(e.message)
@@ -223,7 +224,7 @@ def container_launch(args):
         xml_string = vrtm.vrtm_generate_xml('method', '-mount_path', mount_path, '-manifest', os.path.join(container_dir,'trustpolicy.xml'), '-uuid', args['container_id'], '-name', container_name, '-docker_instance')
         LOG.info('vRTM Request : ')
         LOG.info(xml_string)
-        vrtm.measure_vm(xml_string, {'VRTM_IP' : '127.0.0.1', 'VRTM_PORT' : '16005'})
+        vrtm.measure_vm(xml_string, {'VRTM_IP' : vrtm_config['rpcore_ip'], 'VRTM_PORT' : vrtm_config['rpcore_port']})
     else :
         LOG.info("Mtwilson trustpolicy doesn not exists. Continuing with non measured launch.")
 
