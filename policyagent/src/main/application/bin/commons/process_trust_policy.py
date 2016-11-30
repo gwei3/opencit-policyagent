@@ -16,6 +16,7 @@ class ProcessTrustpolicyXML(object):
     def __init__(self, xml_file_path):
         self.log_obj = logging.getLogger(ProcessTrustpolicyXML.MODULE_NAME)
         self.root = None
+        self.namespace = None
         self.xml_file_path = xml_file_path
         self.__get_root()
 
@@ -23,8 +24,9 @@ class ProcessTrustpolicyXML(object):
         try:
             with open(self.xml_file_path, 'r') as f:
                 xmlstring = f.read().replace('\n', '')
-            root = utils.get_root_of_xml(xmlstring)
+            root, namespace = utils.get_root_of_xml(xmlstring)
             self.root = root
+            self.namespace = namespace
         except Exception as e:
             self.log_obj.exception("Error in getting root of XML file")
             raise e
@@ -61,7 +63,7 @@ class ProcessTrustpolicyXML(object):
         try:
             for node in self.root.iter('Whitelist'):
                 attr_val = node.attrib.get('DigestAlg')
-            new_xml = xml_root(DigestAlg=attr_val)
+            new_xml = xml_root(DigestAlg=attr_val, Version=self.namespace)
             for child in self.root.find('Whitelist'):
                 final = copy.deepcopy(child)
                 final.text=None
