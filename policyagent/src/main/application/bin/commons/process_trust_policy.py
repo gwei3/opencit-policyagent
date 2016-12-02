@@ -63,7 +63,7 @@ class ProcessTrustpolicyXML(object):
         try:
             for node in self.root.iter('Whitelist'):
                 attr_val = node.attrib.get('DigestAlg')
-            new_xml = xml_root(DigestAlg=attr_val, Version=self.namespace)
+            new_xml = xml_root(xmlns=self.namespace, DigestAlg=attr_val)
             for child in self.root.find('Whitelist'):
                 final = copy.deepcopy(child)
                 final.text=None
