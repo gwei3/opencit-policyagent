@@ -12,6 +12,9 @@
 !include "MUI.nsh"
 !include "x64.nsh"
 !include "nsDialogs.nsh"
+;Changes to read ini file
+!include "FileFunc.nsh"
+!include "WinMessages.nsh"
 
 ; MUI Settings
 !define MUI_ABORTWARNING
@@ -55,68 +58,87 @@ ShowUnInstDetails show
 
 Var /Global drive
 VAR /Global size
-Var /Global MyTextbox
-Var /Global MyTextbox1
-Var /Global MyTextbox2
-Var /Global radiobutton1
-Var /Global radiobutton2
+VAR /Global diskNumber
+Var /Global radiobutton1_state
 Var /Global radiobutton2_state
 Var /Global property
 Var /Global property_file
-
-Function DirectoryPageShow
-	FindWindow $R0 "#32770" "" $HWNDPARENT
-	GetDlgItem $R1 $R0 1019
-	EnableWindow $R1 0
-	GetDlgItem $R1 $R0 1001
-	EnableWindow $R1 0
-FunctionEnd
+Var /Global INIFILE
+Var /Global uniqueDrive
 
 Function getVolumeStart
 !insertmacro MUI_HEADER_TEXT $(TITLE) $(SUBTITLE)
+ReadINIStr $drive "$INIFILE" "POLICY_AGENT" "DriveUsedForEncryption"
+
+${If} $drive != ""
+      StrCpy $radiobutton1_state ${BST_CHECKED}
+${EndIf}
+
 ${If} $drive == ""
-      Strcpy $drive "C"
+      StrCpy $radiobutton2_state ${BST_CHECKED}
 ${EndIf}
 
 nsDialogs::Create /NOUNLOAD 1018
 Pop $0
-${NSD_CreateLabel} 0 0 100% 20% "Provide drive to be used for encryption"
-${NSD_CreateLabel} 0 10% 50% 10% "Drive Letter (eg 'C')"
-${NSD_CreateText}  0 20% 20% 10% "$drive"
-${NSD_CreateRadioButton} 0 30% 100% 10% "Use drive to create new partition."
-Pop $radiobutton1
-${NSD_CreateRadioButton} 0 40% 100% 10% "Use drive as a new partition."
-Pop $radiobutton2
-${NSD_SetState} $radiobutton1 ${BST_CHECKED}
-Pop $MyTextbox
+${If} $radiobutton2_state == ${BST_CHECKED}
+	StrCpy $drive $uniqueDrive
+${EndIf}
+${NSD_CreateLabel} 0 0 100% 20% "'$drive' drive is to be used for encryption"
+
+${If} $radiobutton1_state == ${BST_CHECKED}
+    ${NSD_CreateLabel} 0 10% 50% 10% "Using drive to create new partition."
+${EndIf}
+
+${If} $radiobutton2_state == ${BST_CHECKED}
+	${NSD_CreateLabel} 0 10% 50% 10% "Using drive as new partition"
+${EndIf}
+
 nsDialogs::Show
 FunctionEnd
 
 Function getVolumeEnd
-${NSD_GetText} $MyTextbox $0
-Strcpy $drive $0
-;${NSD_GetState} $radiobutton1 $radiobutton1_state
-${NSD_GetState} $radiobutton2 $radiobutton2_state
-${If} $drive == ""
-        MessageBox MB_OK "Drive Letter can't be left blank"
-        Abort
-${EndIf}
 
 SetOverwrite try
 SetOutPath "$INSTDIR\scripts"
 File "scripts\ps_utility.ps1"
+
 nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\ps_utility.ps1" "isDriveExist" $drive  '
 pop $R1
 pop $R2
+
 ;MessageBox mb_ok $R2
 ${If} $R2 == "False$\r$\n"
       MessageBox mb_ok "Drive $drive does not exist. Please provide another drive letter."
       Abort
 ${EndIf}
 
+nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\ps_utility.ps1" "getDiskNumber" $drive  '
+pop $R1
+pop $R2
+
+Strcpy $diskNumber $R2
+;MessageBox mb_ok $R2
+
+${If} $radiobutton1_state == ${BST_CHECKED}
+      SetOutPath "$INSTDIR\logs"
+      FileOpen $9 diskpartscript.txt w ;Opens an Empty File and fills it
+      FileWrite $9 "select disk $diskNumber$\r$\n"
+      FileWrite $9 "list partition"
+      FileClose $9 ;Closes the filled file
+
+      nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\ps_utility.ps1" "getPartitionCount"  '
+      pop $R1
+      pop $R2
+      ;MessageBox mb_ok $R2
+      ${If} $R2 == "4$\r$\n"
+            MessageBox mb_ok "New primary partition could not be created. Please proceed with other option."
+            Abort
+      ${EndIf}
+${EndIf}
+
 Strcpy $property "MOUNT_LOCATION"
 Strcpy $property_file "$INSTDIR\configuration\policyagent_nt.properties"
-
+SetOutPath "$INSTDIR\scripts"
 File "scripts\update_property.ps1"
 File "scripts\bitlocker_drive_setup.ps1"
 SetOutPath "$INSTDIR\configuration"
@@ -127,30 +149,34 @@ ${If} $radiobutton2_state == ${BST_CHECKED}
       ${If} $drive == $0
             MessageBox MB_OK "Specified drive is OS drive. Please provide another drive letter."
             Abort
-      ${EndIf}
+${EndIf}
 
       ${If} ${RunningX64}
             ${DisableX64FSRedirection}
 
-	    #Update MOUNT_LOCATION property
-	    nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\update_property.ps1" "$property_file" "$property" "$drive"  '
-	    nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\bitlocker_drive_setup.ps1" $drive  '
-            
-            MessageBox mb_ok "Bitlocker drive setup complete. Please check log file '$INSTDIR\logs\bitlockersetup.log' for more details."
+			#Update MOUNT_LOCATION property
+			nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\update_property.ps1" "$property_file" "$property" "$drive"  '
+			nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\bitlocker_drive_setup.ps1" $drive  '
 
             ${EnableX64FSRedirection}
       ${EndIf}
+      MessageBox mb_ok "Bitlocker drive setup complete. Please check log file '$INSTDIR\logs\bitlockersetup.log' for more details."
 ${EndIf}
 FunctionEnd
 
 Function getSizeStart
 !insertmacro MUI_HEADER_TEXT $(TITLE) $(SUBTITLE)
+ReadINIStr $size "$INIFILE" "POLICY_AGENT" "SizeToShrink"
+${If} $size == ""
+        MessageBox MB_OK "Size can't be left blank. Please configure SizeToShrink attribute under POLICY_AGENT section of system.ini"
+        Abort
+${EndIf}
 ${If} $radiobutton2_state == ${BST_CHECKED}
       Abort
 ${EndIf}
 
 SetOutPath "$INSTDIR\logs"
-FileOpen $9 diskpartscript.txt w ;Opens a Empty File an fills it
+FileOpen $9 diskpartscript.txt w ;Opens an Empty File and fills it
 FileWrite $9 "select volume $drive$\r$\n"
 FileWrite $9 "shrink querymax"
 FileClose $9 ;Closes the filled file
@@ -158,34 +184,33 @@ FileClose $9 ;Closes the filled file
 nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\ps_utility.ps1" "getFreeSpace"  '
 pop $R1
 pop $R2
-;MessageBox mb_ok $R2
+
+IntCmp $R2 $size equal lessthan morethan
+equal:
+  Goto done
+morethan:
+  Goto done
+lessthan:
+  MessageBox MB_OK "Maximum amount of reclaimable size is $R2, SizeToShrink value under POLICY_AGENT section of system.ini should be less than $R2"
+  Abort
+done:
+
+;${If} ${$R2} < ${$size}
+;      MessageBox MB_OK "Maximum amount of reclaimable size is $R2, SizeToShrink value under POLICY_AGENT section of system.ini should be less than $R2"
+;      Abort
+;${EndIf}
+;${If} ${$R2} > ${$size}
+;	MessageBox MB_OK "Space is available"
+;${EndIf}
 
 nsDialogs::Create /NOUNLOAD 1018
 Pop $0
 ${NSD_CreateLabel} 0 0 100% 20% "Maximum amount of reclaimable size : $R2"
-${NSD_CreateLabel} 0 10% 50% 10% "Size to shrink(MB)"
-${NSD_CreateText}  0 20% 20% 10% ""
-Pop $MyTextbox1
+${NSD_CreateLabel} 0 10% 50% 10% "Size to shrink(MB) : $size"
 nsDialogs::Show
 FunctionEnd
 
 Function getSizeEnd
-${If} ${RunningX64}
-    ${DisableX64FSRedirection}
-        nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\ps_utility.ps1" "getDiskNumber" $drive  '
-        pop $R1
-        pop $R2
-        VAR /Global diskNumber
-        Strcpy $diskNumber $R2
-        ;MessageBox mb_ok $R2
-    ${EnableX64FSRedirection}
-${Else}
-       MessageBox mb_ok "Diskpart automation requires x64 system."
-       Abort
-${EndIf}
-
-${NSD_GetText} $MyTextbox1 $0
-Strcpy $size $0
 ${If} $size == ""
         MessageBox MB_OK "Size can't be left blank. Please provide size to continue."
         Abort
@@ -194,43 +219,44 @@ FunctionEnd
 
 Function getDriveLetterStart
 !insertmacro MUI_HEADER_TEXT $(TITLE) $(SUBTITLE)
+ReadINIStr $uniqueDrive "$INIFILE" "POLICY_AGENT" "UniqueDriveForNewVolume"
+${If} $uniqueDrive == ""
+        StrCpy $uniqueDrive "Z"
+${EndIf}
+
 ${If} $radiobutton2_state == ${BST_CHECKED}
       Abort
 ${EndIf}
 
 nsDialogs::Create /NOUNLOAD 1018
 Pop $0
-${NSD_CreateLabel} 0 0 100% 20% "Provide unique drive letter to be assigned to new volume"
-${NSD_CreateLabel} 0 10% 50% 10% "Drive Letter (eg 'Z')"
-${NSD_CreateText}  0 20% 20% 10% "Z"
-Pop $MyTextbox2
+${NSD_CreateLabel} 0 0 100% 20% "Using '$uniqueDrive' letter to be assigned to new volume"
 nsDialogs::Show
 FunctionEnd
 
 Function getDriveLetterEnd
-${NSD_GetText} $MyTextbox2 $0
-${If} $0 == ""
+${If} $uniqueDrive == ""
         MessageBox MB_OK "Drive Letter can't be left blank"
         Abort
 ${EndIf}
 
-nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\ps_utility.ps1" "isDriveExist" $0  '
+nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\ps_utility.ps1" "isDriveExist" $uniqueDrive  '
 pop $R1
 pop $R2
 ${If} $R2 == "True$\r$\n"
-        MessageBox MB_OK "Drive $0 already exist. Please provide another drive letter."
+        MessageBox MB_OK "Drive $uniqueDrive already exist. Please provide another drive letter."
         Abort
 ${EndIf}
 ;MessageBox mb_ok $R2
 
 SetOutPath "$INSTDIR\logs"
-FileOpen $9 diskpartscript.txt w ;Opens a Empty File an fills it
+FileOpen $9 diskpartscript.txt w ;Opens an Empty File and fills it
 FileWrite $9 "select volume $drive$\r$\n"
 FileWrite $9 "shrink desired=$size$\r$\n"
 FileWrite $9 "select disk $diskNumber"
 FileWrite $9 "create partition primary size=$size$\r$\n"
 FileWrite $9 "format quick fs=ntfs$\r$\n"
-FileWrite $9 "assign letter=$0$\r$\n"
+FileWrite $9 "assign letter=$uniqueDrive$\r$\n"
 FileClose $9 ;Closes the filled file
 
 nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\ps_utility.ps1" "createFinalPartition"  '
@@ -241,12 +267,11 @@ ${If} ${RunningX64}
       ${DisableX64FSRedirection}
 
       #Update MOUNT_LOCATION property
-      nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\update_property.ps1" "$property_file" "$property" "$0"  '
-      nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\bitlocker_drive_setup.ps1" $0  '
+      nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\update_property.ps1" "$property_file" "$property" "$uniqueDrive"  '
+      nsExec::ExecToStack 'powershell -inputformat none -ExecutionPolicy RemoteSigned -File "$INSTDIR\scripts\bitlocker_drive_setup.ps1" $uniqueDrive  '
 
       ${EnableX64FSRedirection}
 ${EndIf}
-
 MessageBox mb_ok "Bitlocker drive setup complete. Please check log file '$INSTDIR\logs\bitlockersetup.log' for more details."
 FunctionEnd
 
@@ -255,10 +280,9 @@ Section "policyagent" SEC01
   SetOutPath "$INSTDIR"
 
   # Copy files to installation directory
- 
+  SetOverwrite try
   # bin directory
   SetOutPath "$INSTDIR\bin\commons"
-  SetOverwrite try
   File "bin\commons\parse.py"
   File "bin\commons\process_trust_policy.py"
   File "bin\commons\utils.py"
@@ -275,17 +299,17 @@ Section "policyagent" SEC01
   File "bin\invocation\vrtm_invoke.py"
   File "bin\invocation\__init__.py"
 
-  SetOutPath "$INSTDIR\bin"
-  File "bin\policyagent-init"
-  File "bin\policyagent.py"
-  File "bin\__init__.py"
-  File "bin\BitLocker.exe"
-
   SetOutPath "$INSTDIR\bin\trustpolicy"
   File "bin\trustpolicy\trust_policy_retrieval.py"
   File "bin\trustpolicy\trust_store_glance_image_tar.py"
   File "bin\trustpolicy\trust_store_swift.py"
   File "bin\trustpolicy\__init__.py"
+  
+  SetOutPath "$INSTDIR\bin"
+  File "bin\policyagent-init"
+  File "bin\policyagent.py"
+  File "bin\__init__.py"
+  File "bin\BitLocker.exe"
   
   # configuration directory
   SetOutPath "$INSTDIR\configuration"
@@ -295,34 +319,18 @@ Section "policyagent" SEC01
   SetOutPath "$INSTDIR\scripts"
   File "scripts\unlock_bitlocker_drive.ps1"
   File "scripts\free_bitlocker_drive.ps1"
-  
-  # env directory
-  SetOutPath "$INSTDIR\env"
-  
-  # logs directory
-  SetOutPath "$INSTDIR\logs"
 
   # Create System Environment Variable - POLICYAGENT_HOME
   !define env_hklm 'HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"'
   !define env_hkcu 'HKCU "Environment"'
   WriteRegExpandStr ${env_hklm} POLICYAGENT_HOME $INSTDIR
   SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
-
 SectionEnd
 
-; These are the programs that are needed by Policyagent.
-;Section -Prerequisites
-;  SetOutPath "$INSTDIR\prerequisites"
-;  MessageBox MB_YESNO "Installing Pre-requisites" /SD IDYES IDNO endPython-lxml
-;    File "prerequisites\lxml-3.4.0.win-amd64-py2.7.exe"
-;    ExecWait "$INSTDIR\prerequisites\lxml-3.4.0.win-amd64-py2.7.exe"
-;    Goto endPython-lxml
-;  endPython-lxml:
-; SectionEnd
- 
 Section -AdditionalIcons
-  CreateDirectory "$SMPROGRAMS\PolicyAgent"
-  CreateShortCut "$SMPROGRAMS\PolicyAgent\Uninstall.lnk" "$INSTDIR\uninst.exe"
+  CreateDirectory "$SMPROGRAMS\Intel"
+  CreateDirectory "$SMPROGRAMS\Intel\PolicyAgent"
+  CreateShortCut "$SMPROGRAMS\Intel\PolicyAgent\Uninstall.lnk" "$INSTDIR\uninst.exe"
 SectionEnd
 
 Section -Post
@@ -334,6 +342,28 @@ Section -Post
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
 SectionEnd
 
+Function .onInit
+  ; Start Code to specify ini file path
+  StrCpy "$INIFILE" "$EXEDIR\system.ini"
+  IfFileExists "$INIFILE" 0 file_not_found
+        goto check_unique_drive_letter
+  file_not_found:
+        MessageBox MB_OK "System Configuration file doesn't exists in installer folder"
+        Abort
+  check_unique_drive_letter:
+  ReadINIStr $uniqueDrive "$INIFILE" "POLICY_AGENT" "UniqueDriveForNewVolume"
+        ${If} $uniqueDrive == ""
+              MessageBox MB_OK "Please configure UniqueDrive name in system.ini"
+              Abort
+        ${EndIf}
+
+  ReadRegStr $R0 ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "UninstallString"
+  StrCmp $R0 "" done
+  MessageBox MB_ICONEXCLAMATION|MB_OKCANCEL|MB_DEFBUTTON2 "$(^Name) is already installed. Click `OK` to remove the previous version or `Cancel` to cancel this upgrade." IDOK +2
+  Abort
+  Exec $INSTDIR\uninst.exe
+  done:
+FunctionEnd
 
 Function un.onUninstSuccess
 ;  HideWindow
@@ -343,6 +373,14 @@ FunctionEnd
 Function un.onInit
 ;  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "Are you sure you want to completely remove $(^Name) and all of its components?" IDYES +2
 ;  Abort
+FunctionEnd
+
+Function DirectoryPageShow
+	FindWindow $R0 "#32770" "" $HWNDPARENT
+	GetDlgItem $R1 $R0 1019
+	EnableWindow $R1 0
+	GetDlgItem $R1 $R0 1001
+	EnableWindow $R1 0
 FunctionEnd
 
 Section Uninstall
@@ -361,8 +399,6 @@ Section Uninstall
   nsExec::Exec 'sc delete UnlockDrive'
 
   Delete "$INSTDIR\uninst.exe"
-  Delete "$INSTDIR\logs\bitlockersetup.log"
-  Delete "$INSTDIR\logs\diskpartscript.txt"
   Delete "$INSTDIR\configuration\bitlocker.key"
   Delete "$INSTDIR\configuration\policyagent_nt.properties"
   Delete "$INSTDIR\configuration\logging_properties.cfg"
@@ -402,15 +438,17 @@ Section Uninstall
   Delete "$INSTDIR\bin\commons\process_trust_policy.py"
   Delete "$INSTDIR\bin\commons\parse.pyc"
   Delete "$INSTDIR\bin\commons\parse.py"
+  Delete "$INSTDIR\logs\bitlockersetup.log"
+  Delete "$INSTDIR\logs\diskpartscript.txt"
   Delete "$INSTDIR\scripts\bitlocker_drive_setup.ps1"
   Delete "$INSTDIR\scripts\unlock_bitlocker_drive.ps1"
   Delete "$INSTDIR\scripts\update_property.ps1"
   Delete "$INSTDIR\scripts\free_bitlocker_drive.ps1"
   Delete "$INSTDIR\scripts\ps_utility.ps1"
+  Delete "$SMPROGRAMS\Intel\PolicyAgent\Uninstall.lnk"
 
-  Delete "$SMPROGRAMS\PolicyAgent\Uninstall.lnk"
-  RMDir "$SMPROGRAMS\PolicyAgent"
-  RMDir "$INSTDIR\env"
+  RMDir "$SMPROGRAMS\Intel\PolicyAgent"
+  RMDir "$SMPROGRAMS\Intel"
   RMDir "$INSTDIR\configuration"
   RMDir "$INSTDIR\bin\trustpolicy"
   RMDir "$INSTDIR\bin\invocation"
@@ -424,7 +462,6 @@ Section Uninstall
   # Remove system environment variable POLICYAGENT_HOME
   DeleteRegValue ${env_hklm} POLICYAGENT_HOME
   SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
-
   DeleteRegKey ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}"
   SetAutoClose true
 SectionEnd
