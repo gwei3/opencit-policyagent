@@ -15,14 +15,14 @@ LOG = logging.getLogger(MODULE_NAME)
 
 def get_root_of_xml(xmlstring):
     try:
-        namespace = None
         tree = ET.iterparse(StringIO(xmlstring))
         for _, node in tree:
             if 'TrustPolicy' in node.tag:
-                namespace = node.tag.split('}')[0].strip('{').split(':')[3]  #  Save namespace
+                namespace = node.tag.split('}')[0].strip('{')  #  Save namespace
             if '}' in node.tag:
                 node.tag = node.tag.split('}', 1)[1]  # Strip all namespaces.
         root = tree.root
+        namespace = namespace.replace("policy", "manifest")
         return root, namespace
     except Exception as e:
         LOG.exception("Failed to get root of XML file.")
