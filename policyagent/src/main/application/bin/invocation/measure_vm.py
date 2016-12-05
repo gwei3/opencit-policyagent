@@ -56,7 +56,7 @@ class VRTMReq(object):
             stream = received_stream[1]
             # See, if the response from VRTM is positive/successful.
             #root = ET.XML(stream)
-            root = utils.get_root_of_xml(stream)
+            root, namespace = utils.get_root_of_xml(stream)
             enc_retcode = root.find('params').find('param').find('value').find('string').text
             dec_retcode = b64decode(enc_retcode)
             if int(dec_retcode) < 0:

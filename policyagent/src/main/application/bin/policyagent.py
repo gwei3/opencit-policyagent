@@ -36,6 +36,8 @@ def launch(args):
                 #Here we get the policy from the store which we retrieved from the previous step
                 policy_location = store.getPolicy(args['base_image_id'], config,
                                             {'mtwilson_trustpolicy_location': args['mtwilson_trustpolicy_location']})
+                #copy the policy in the instance drirectory
+                shutil.copy(policy_location, os.path.join(instance_dir,'trustpolicy.xml'))
             else:
                 LOG.exception("Mtwilson_trustpolicy_location is None")
                 raise Exception("Mtwilson_trustpolicy_location is None")
@@ -48,6 +50,8 @@ def launch(args):
                         LOG.error("Image ID from trustpolicy: " + xml_parser.retrieve_image_id())
                         LOG.error("Actual Image ID: " + args['image_id'])
                         raise Exception("Image ID mismatch")
+                    #generate stripped xml with whitelist
+                    xml_parser.generate_manifestlist_xml(instance_dir)
                     #retrieve encryption element which has dek_url and checksum
                     encryption_element = xml_parser.retrieve_chksm()
                     if encryption_element is not None:
@@ -72,9 +76,9 @@ def launch(args):
                     if not os.path.exists(trustreport_instance_dir):
                         os.mkdir(trustreport_instance_dir)
                         os.chmod(trustreport_instance_dir, 0775)
-                    shutil.copy(policy_location, os.path.join(trustreport_instance_dir,'trustpolicy.xml'))
+                    shutil.copy(os.path.join(instance_dir,'trustpolicy.xml'), os.path.join(trustreport_instance_dir,'trustpolicy.xml'))
+                    shutil.copy(os.path.join(instance_dir,'manifest.xml'), os.path.join(trustreport_instance_dir,'manifest.xml'))
                     os.chmod(os.path.join(trustreport_instance_dir, 'trustpolicy.xml'), 0664)
-                    xml_parser.generate_manifestlist_xml(trustreport_instance_dir)
                     os.chmod(os.path.join(trustreport_instance_dir, 'manifest.xml'), 0664)
                 else:
                     LOG.exception("Trust policy verification failed.")
