@@ -73,7 +73,7 @@
 		</fail>
 	</target>
 	<target name="all" depends="ready,clean,build,packages"></target>
-    	<target name="all" depends="ready,clean,build,packages"></target>
+    	
             <target name="klocwork" depends="init,ready">
         <exec executable="/bin/bash">
 		      <arg value="klocwork.sh"/>
