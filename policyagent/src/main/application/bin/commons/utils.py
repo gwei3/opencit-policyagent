@@ -15,6 +15,7 @@ LOG = logging.getLogger(MODULE_NAME)
 
 def get_root_of_xml(xmlstring):
     try:
+        namespace = None
         tree = ET.iterparse(StringIO(xmlstring))
         for _, node in tree:
             if 'TrustPolicy' in node.tag:
