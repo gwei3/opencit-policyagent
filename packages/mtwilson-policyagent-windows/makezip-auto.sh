@@ -40,7 +40,7 @@ fi
 
 cd $targetDir
 $MAKENSIS "${projectNameVersion}/policyagentinstallscript.nsi"
-mv "${projectNameVersion}/Installer.exe" "${projectNameVersion}.exe"
+mv "${projectNameVersion}/policyagent-setup.exe" "${projectNameVersion}.exe"
 
 # This is not necessary, but to zip it
 #$makezip -r "${projectNameVersion}.zip" "${projectNameVersion}"
