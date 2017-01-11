@@ -8,7 +8,10 @@ from StringIO import StringIO
 from lxml import etree as ET
 import shutil
 import re
+from Crypto.Hash import MD5
+from Crypto.Cipher import AES
 
+__CSL = None
 MODULE_NAME = 'policyagent'
 LOG = logging.getLogger(MODULE_NAME)
 
@@ -87,6 +90,7 @@ def untar(src, dest):
             tar = tarfile.open(src, 'r')
             tar.extractall(dest)
             LOG.debug("Tar file extracted ")
+            #shutil.copytree(dest, "C:\\test\\")
             return True
         else:
             LOG.debug("Given file " + src + " not a tarfile!")
@@ -146,13 +150,14 @@ def generate_md5(filepath):
 def copytree_with_permissions(src, dest):
     try:
         shutil.copytree(src, dest)
-        st = os.stat(src)
-        os.chown(dest, st.st_uid, st.st_gid)
-        for f in os.listdir(src):
-            src_f = os.path.join(src, f)
-            st = os.stat(src_f)
-            dest_f = os.path.join(dest, f)
-            os.chown(dest_f, st.st_uid, st.st_gid)
+        if not os.name == 'nt':
+            st = os.stat(src)
+            os.chown(dest, st.st_uid, st.st_gid)
+            for f in os.listdir(src):
+                src_f = os.path.join(src, f)
+                st = os.stat(src_f)
+                dest_f = os.path.join(dest, f)
+                os.chown(dest_f, st.st_uid, st.st_gid)
     except Exception as e:
         LOG.exception("Failed while copying " + src + " to location " + dest + ": " + str(e.message))
 
@@ -203,7 +208,7 @@ def key_derivation_function(password, salt, key_length, iv_length):
     #Initialize digest and intermediate digest
     digst = digst_i = ''
     while len(digst) < key_length + iv_length:
-        digst_i = md5(digst_i + password + salt).digest()
+        digst_i = MD5.new(digst_i + password + salt).digest()
         digst += digst_i
     return digst[:key_length], digst[key_length:key_length+iv_length]
 
