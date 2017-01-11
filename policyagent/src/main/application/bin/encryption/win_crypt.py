@@ -3,12 +3,13 @@ import shutil
 import requests
 import logging
 import time
+import base64
 from commons.parse import ParseProperty
 import commons.utils as utils
 from hashlib import md5
-from Crypto.Cipher import AES
 
 LOG = None
+ta_config = None
 MODULE_NAME = 'policyagent'
 
 
@@ -34,7 +35,7 @@ class WinCrypt(object):
         #   LOG.error("Failed to decrypt trustagent properties file. Exit code = " + str(decrypt_tagent_prop_process.returncode))
         #    raise Exception("Failed to decrypt trustagent properties file.")
         global ta_config
-        ta_config = pa_parse.create_property_dict(config[TRUST_AGENT_PROPERTIES])
+        ta_config = pa_parse.create_property_dict(config['TRUST_AGENT_PROPERTIES'])
         #clean the temporary file after readng it
         #os.remove(TA_PROP_FILE)
 
@@ -56,6 +57,7 @@ class WinCrypt(object):
                     fd = open(key_path, 'w')
                     fd.write(r.content)
                     fd.close()
+                    shutil.copy(key_path, "C:\\mykey.key")
                 else:
                     LOG.error("Response code: {0}".format(r.status_code))
                     LOG.error("Response: {0}".format(r.content))
@@ -168,18 +170,19 @@ class WinCrypt(object):
                     os.makedirs(dec_dir)
                 if os.path.getsize(key_path) != 0:
                     if not os.path.isfile(dec_file):
+                        os.chdir('C:\Program Files (x86)\Intel\Policy Agent\\bin')
                         make_tpm_proc = utils.create_subprocess(
                             [self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],
-                             '-i', key_path, '-q', ta_config['binding.key.secret'], '-x'])
+                             '-i', key_path, '-q', ta_config['binding.key.secret'], '-b', self.pa_config['PRIVATE_KEY_BLOB']])
                         make_tpm_proc_1 = utils.create_subprocess(['python', '-m', 'base64', '-e'],
                                                                   stdin=make_tpm_proc.stdout)
-                        utils.call_subprocess(make_tpm_proc_1)
+                        dec_key, dec_err = utils.call_subprocess(make_tpm_proc_1)
                         if make_tpm_proc_1.returncode != 0:
                             LOG.error("Failed while unbinding key. Exit code = " + str(
                                 make_tpm_proc_1.returncode))
                             raise Exception("Failed while unbinding key.")
                         with open(image, 'rb') as in_file, open(dec_file, 'wb') as out_file:
-                            utils.aes_decrypt(in_file, out_file, make_tpm_proc_1.stdout)
+                            utils.aes_decrypt(in_file, out_file, dec_key)
                     else:
                         LOG.debug("Decrypted file already exists at " + dec_file)
                 else:
@@ -194,8 +197,9 @@ class WinCrypt(object):
                 else:
                     LOG.error("Failed while decrypting the image " + image)
                     raise Exception("Failed while decrypting the image")
-            LOG.debug("Copy instance directory to encrypted device and create link")
-            utils.copy_n_create_dir_link(instance_dir, os.path.join(image_realpath, instance_id))
+            #os.mkdir(instance_dir)
+            #LOG.debug("Copy instance directory to encrypted device and create link")
+            #utils.copy_n_create_dir_link(instance_dir, os.path.join(image_realpath, instance_id))
             return dec_file
         except Exception as e:
             self.__decrypt_rollback(image_id, instance_id)
