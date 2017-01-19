@@ -8,9 +8,14 @@ class TrustPolicyStore:
     def __init__(self):
         self.log = logging.getLogger(__name__)
 
-    def getPolicy(self, args, config):
+    def getPolicy(self, args, pa_config):
         try:
-            tarfile = args['base_image']
+            if not os.name == 'nt':
+                image_id = args['base_image_id']
+            else:
+                image_id = args['image_id']
+            instances_dir = pa_config['INSTANCES_DIR']
+            tarfile = os.path.join(instances_dir.strip(), '_base', image_id)
             dest = tarfile + '_temp'
             if not os.path.exists(tarfile):
                 self.log.error("Image " + tarfile + " doesnot exists..")
@@ -25,7 +30,7 @@ class TrustPolicyStore:
                 #We also provide read access to trustpolicy for non root user as tagent runs as non root user.
                 for f in os.listdir(dest):
                     if f.endswith(".xml"):
-                        trust_policy = os.path.join(config['INSTANCES_DIR'], '_base', args['image_id']) + '.trustpolicy.xml'
+                        trust_policy = tarfile + '.trustpolicy.xml'
                         src = os.path.join(dest, f)
                         shutil.copy(src, trust_policy)
                         if not os.name == 'nt':
@@ -35,11 +40,12 @@ class TrustPolicyStore:
                         shutil.move(src, tarfile)
                         if not os.name == 'nt':
                             os.chown(tarfile, st.st_uid, st.st_gid)
+                        os.chmod(tarfile, 0644)
                 shutil.rmtree(dest)
                 return trust_policy
             else:
                 #if the provided file is not a tar file then it was already downloaded and it's policy already exists
-                trust_policy = os.path.join(config['INSTANCES_DIR'], '_base', args['image_id']) + '.trustpolicy.xml'
+                trust_policy = tarfile + '.trustpolicy.xml'
                 if not os.path.exists(trust_policy):
                     self.log.error(trust_policy + " not exists")
                     raise Exception(trust_policy + " not exists")

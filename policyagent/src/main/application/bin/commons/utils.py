@@ -18,12 +18,16 @@ LOG = logging.getLogger(MODULE_NAME)
 
 def get_root_of_xml(xmlstring):
     try:
+        namespace = ''
         tree = ET.iterparse(StringIO(xmlstring))
         for _, node in tree:
+            if 'TrustPolicy' in node.tag:
+                namespace = node.tag.split('}')[0].strip('{')  #  Save namespace
             if '}' in node.tag:
                 node.tag = node.tag.split('}', 1)[1]  # Strip all namespaces.
         root = tree.root
-        return root
+        namespace = namespace.replace("policy", "manifest")
+        return root, namespace
     except Exception as e:
         LOG.exception("Failed to get root of XML file.")
         raise e
@@ -50,6 +54,7 @@ def get_loop_device(sparse_file_path):
 
         make_proc = create_subprocess(['losetup', '--find'], None)
         output = call_subprocess(make_proc)
+        loop_dev = None
         if make_proc.returncode == 0:
             loop_dev = output[0]
         if loop_dev is None:
@@ -62,7 +67,7 @@ def get_loop_device(sparse_file_path):
                         count += 1
             device_name = '/dev/loop' + str(count)
             device = os.makedev(7, count)
-            os.mknod(device_name, 0660 | stat.S_ISBLK, device)
+            os.mknod(device_name, 0660 | stat.S_IFBLK, device)
             make_proc = create_subprocess(['losetup', '--find'])
             output = call_subprocess(make_proc)
             if make_proc.returncode == 0:

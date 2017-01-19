@@ -26,30 +26,45 @@ PA_HOME='/opt/policyagent'
 def version():
     LOG.info('policyagent-0.1')
 
+def launch(args):
+    prepare_trusted_image(args)
+
 def prepare_trusted_image(args):
     try:
         if os.path.isfile(args['base_image']):
             policy_location = None
             instance_dir = os.path.join(config['INSTANCES_DIR'],args['instance_id'])
             #Retrieve the store module from TrustPolicyRetrieval factory depending on the trustpolicy location provided
-            store = TrustPolicyRetrieval.trustPolicy(args['mtwilson_trustpolicy_location'])
+            if args['mtwilson_trustpolicy_location'] is None:
+                LOG.exception("Mtwilson_trustpolicy_location is None")
+                raise Exception("Mtwilson_trustpolicy_location is None")
+            store = TrustPolicyRetrieval.trustPolicy(args['mtwilson_trustpolicy_location'].split(':', 1)[0])
             if store is not None:
                 #Here we get the policy from the store which we retrieved from the previous step
                 policy_location = store.getPolicy(args, config)
                 LOG.info("policy_location : " + policy_location)
+                #copy the policy in the instance drirectory
+                shutil.copy(policy_location, os.path.join(instance_dir,'trustpolicy.xml'))
             else:
                 LOG.exception("Mtwilson_trustpolicy_location is None")
                 raise Exception("Mtwilson_trustpolicy_location is None")
             if policy_location is not None:
                 xml_parser = ProcessTrustpolicyXML(policy_location)
                 if xml_parser.verify_trust_policy_signature(config['TAGENT_LOCATION'], policy_location):
+                    if xml_parser.retrieve_image_id() != args['image_id']:
+                        LOG.exception("Image ID from trust policy doesn't match with actual image ID")
+                        LOG.error("Image ID from trustpolicy: " + xml_parser.retrieve_image_id())
+                        LOG.error("Actual Image ID: " + args['image_id'])
+                        raise Exception("Image ID mismatch")
+                    #generate stripped xml with whitelist
+                    xml_parser.generate_manifestlist_xml(instance_dir)
                     #retrieve encryption element which has dek_url and checksum
                     encryption_element = xml_parser.retrieve_chksm()
                     if encryption_element is not None:
                         if not os.name == 'nt':
                             crypt = Crypt(config=config)
-                            decfile = crypt.decrypt(image_id=args['image_id'],
-                                                image=os.path.join(config['INSTANCES_DIR'], '_base', args['image_id']),
+                            decfile = crypt.decrypt(image_id=args['base_image_id'],
+                                                image=os.path.join(config['INSTANCES_DIR'], '_base', args['base_image_id']),
                                                 dek_url=encryption_element['DEK_URL'],
                                                 instance_dir=instance_dir,
                                                 root_disk_size_gb=args['root_disk_size_gb'],
@@ -70,10 +85,10 @@ def prepare_trusted_image(args):
                             LOG.exception("checksum mismatch")
                             raise Exception("checksum mismatch")
                 if not os.name == 'nt':
-                    create_trust_reports_dir(args, policy_location, xml_parser)
+                    create_trust_reports_dir(args)
             else:
-                LOG.exception("policy location has None value")
-                raise Exception("policy location has None value")
+                LOG.exception("Policy location has None value")
+                raise Exception("Policy location has None value")
         else:
             LOG.exception("File not found" + args['base_image'])
             raise Exception("File not found")
@@ -81,20 +96,21 @@ def prepare_trusted_image(args):
         LOG.exception("Failed during launch call " + str(e.message))
         raise e
 		
-def create_trust_reports_dir(args, policy_location, xml_parser):
+def create_trust_reports_dir(args):
     if not os.path.exists(vrtm_config['trust_report_dir']):
         os.mkdir(vrtm_config['trust_report_dir'])
         if not os.name == 'nt':
             os.chmod(vrtm_config['trust_report_dir'], 0775)
+    instance_dir = os.path.join(config['INSTANCES_DIR'],args['instance_id'])
     trustreport_instance_dir = os.path.join(vrtm_config['trust_report_dir'], args['instance_id'])
     if not os.path.exists(trustreport_instance_dir):
         os.mkdir(trustreport_instance_dir)
         if not os.name == 'nt':
             os.chmod(trustreport_instance_dir, 0775)
-    shutil.copy(policy_location, os.path.join(trustreport_instance_dir,'trustpolicy.xml'))
+    shutil.copy(os.path.join(instance_dir,'trustpolicy.xml'), os.path.join(trustreport_instance_dir,'trustpolicy.xml'))
     if not os.name == 'nt':
         os.chmod(os.path.join(trustreport_instance_dir, 'trustpolicy.xml'), 0664)
-    xml_parser.generate_manifestlist_xml(trustreport_instance_dir)
+    shutil.copy(os.path.join(instance_dir,'manifest.xml'), os.path.join(trustreport_instance_dir,'manifest.xml'))
     if not os.name == 'nt':
         os.chmod(os.path.join(trustreport_instance_dir, 'manifest.xml'), 0664)
 
@@ -158,6 +174,7 @@ def remount():
             LOG.debug("Creating and mounting encrypted device: {0}".format(image_id))
             crypt.create_encrypted_device(image_id, os.path.join(config['MOUNT_LOCATION'], image_id),
                                           os.path.join(config['DISK_LOCATION'], image_id), key_path, False)
+            os.remove(key_path)
         except Exception as e:
             LOG.error('Failed while mounting encrypted device: {0}'.format(enc_file))
             LOG.exception(e.message)
@@ -229,12 +246,19 @@ def container_launch(args):
                 raise Exception("Mtwilson trustpolicy verification failed")
             xml_parser.generate_manifestlist_xml(trustreport_container_dir)
             os.chmod(os.path.join(trustreport_container_dir, 'manifest.xml'), 0664)
+        elif not xml_parser.verify_trust_policy_signature(config['TAGENT_LOCATION'], os.path.join(trustreport_container_dir, 'trustpolicy.xml')):
+            LOG.exception("Mtwilson trustpolicy verification failed")
+            raise Exception("Mtwilson trustpolicy verification failed")
+
+        container_name = args['container_name']
+        if args['container_name'].startswith('/'):
+            container_name = args['container_name'][1:]
 
         vrtm = VRTMReq()
-        xml_string = vrtm.vrtm_generate_xml('method', '-mount_path', mount_path, '-uuid', args['container_id'], '-docker_instance')
+        xml_string = vrtm.vrtm_generate_xml('method', '-mount_path', mount_path, '-manifest', os.path.join(container_dir,'trustpolicy.xml'), '-uuid', args['container_id'], '-name', container_name, '-docker_instance')
         LOG.info('vRTM Request : ')
         LOG.info(xml_string)
-        vrtm.measure_vm(xml_string, {'VRTM_IP' : '127.0.0.1', 'VRTM_PORT' : '16005'})
+        vrtm.measure_vm(xml_string, {'VRTM_IP' : vrtm_config['rpcore_ip'], 'VRTM_PORT' : vrtm_config['rpcore_port']})
     else :
         LOG.info("Mtwilson trustpolicy doesn not exists. Continuing with non measured launch.")
 
@@ -296,8 +320,9 @@ if __name__ == "__main__":
         #VM launch command parser
         launch_parser = subparsers.add_parser("prepare_trusted_image")
         launch_parser.add_argument("base_image")
-        launch_parser.add_argument("image_id")
+        launch_parser.add_argument("base_image_id")
         launch_parser.add_argument("instance_id")
+        launch_parser.add_argument("image_id")
         launch_parser.add_argument("mtwilson_trustpolicy_location")
         launch_parser.add_argument("root_disk_size_gb", type=int)
         launch_parser.set_defaults(func = prepare_trusted_image)
@@ -316,6 +341,7 @@ if __name__ == "__main__":
         container_launch_parser.add_argument("root_path")
         container_launch_parser.add_argument("image_id")
         container_launch_parser.add_argument("container_id")
+        container_launch_parser.add_argument("container_name")
         container_launch_parser.add_argument("mtwilson_trustpolicy_location")
         container_launch_parser.set_defaults(func = container_launch)
         #Invokde vrtm 

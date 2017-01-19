@@ -6,6 +6,10 @@ import time
 from commons.parse import ParseProperty
 import commons.utils as utils
 
+#import sys
+#reload(sys)
+#sys.setdefaultencoding("utf-8")
+
 LOG = None
 MODULE_NAME = 'policyagent'
 
@@ -17,6 +21,7 @@ class Crypt(object):
     BASE_DIR = "_base"
     LOST_FOUND = "lost+found"
     DEVICE_MAPPER = "/dev/mapper/"
+    #file_content = ""
 
     def __init__(self, config):
         """
@@ -27,7 +32,7 @@ class Crypt(object):
         LOG = logging.getLogger(MODULE_NAME)
         self.pa_config = config
         TA_PROP_FILE = "trustagent" + ((str)((int)(time.time()))) + ".properties"
-        decrypt_tagent_prop_process = utils.create_subprocess(['tagent', 'export-config', os.path.join("/tmp", TA_PROP_FILE)])
+        decrypt_tagent_prop_process = utils.create_subprocess([config['TAGENT_LOCATION'], 'export-config', os.path.join("/tmp", TA_PROP_FILE)])
         utils.call_subprocess(decrypt_tagent_prop_process)
         if decrypt_tagent_prop_process.returncode != 0:
             LOG.error("Failed to decrypt trustagent properties file. Exit code = " + str(decrypt_tagent_prop_process.returncode))
@@ -40,7 +45,8 @@ class Crypt(object):
     # Function to request key to KMS
     def __kms_request_key(self, aik_dir, dek_url, key_path):
         LOG.debug("kms proxy ip address :" + self.pa_config['KMSPROXY_SERVER'])
-        LOG.debug("kms jetty port :" + self.pa_config['KMSPROXY_SERVER_PORT'])
+        LOG.debug("kms proxy jetty port :" + self.pa_config['KMSPROXY_SERVER_PORT'])
+        LOG.debug("key URL :" + dek_url)
         try:
             if len(self.pa_config['KMSPROXY_SERVER_PORT']) and len(self.pa_config['KMSPROXY_SERVER']):
                 if not os.path.isdir(self.pa_config['ENC_KEY_LOCATION']):
@@ -348,6 +354,9 @@ class Crypt(object):
                             LOG.error("Failed while decrypting image..Exit code = " + str(
                                 make_openssl_decrypt_proc.returncode))
                             raise Exception("Failed while decrypting image")
+                        else:
+                            LOG.debug("Image decrypted successfully.")
+                            os.remove(key_path)
                     else:
                         LOG.debug("Decrypted file already exists at " + dec_file)
                 else:
