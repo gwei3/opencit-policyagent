@@ -318,9 +318,17 @@ if __name__ == "__main__":
         version_parser = subparsers.add_parser("version")
         version_parser.set_defaults(func = version)
         #VM launch command parser
-        launch_parser = subparsers.add_parser("prepare_trusted_image")
+        launch_parser = subparsers.add_parser("launch")
         launch_parser.add_argument("base_image")
         launch_parser.add_argument("base_image_id")
+        launch_parser.add_argument("instance_id")
+        launch_parser.add_argument("image_id")
+        launch_parser.add_argument("mtwilson_trustpolicy_location")
+        launch_parser.add_argument("root_disk_size_gb", type=int)
+        launch_parser.set_defaults(func = launch)
+        #prepare_trusted_image command parser
+        launch_parser = subparsers.add_parser("prepare_trusted_image")
+        launch_parser.add_argument("base_image")
         launch_parser.add_argument("instance_id")
         launch_parser.add_argument("image_id")
         launch_parser.add_argument("mtwilson_trustpolicy_location")
@@ -344,12 +352,12 @@ if __name__ == "__main__":
         container_launch_parser.add_argument("container_name")
         container_launch_parser.add_argument("mtwilson_trustpolicy_location")
         container_launch_parser.set_defaults(func = container_launch)
-        #Invokde vrtm 
+        #Invoke vrtm command parser
         invoke_parser = subparsers.add_parser("invoke_vrtm")
         invoke_parser.add_argument("image_id")
         invoke_parser.add_argument("instance_id")
         invoke_parser.set_defaults(func = invoke_vrtm)
-        #create_instance_directory_symlink
+        #create_instance_directory_symlink command parser
         instance_parser = subparsers.add_parser("create_instance_directory_symlink")
         instance_parser.add_argument("image_id")
         instance_parser.add_argument("instance_id")
