@@ -313,7 +313,7 @@ Section "policyagent" SEC01
   
   # configuration directory
   SetOutPath "$INSTDIR\configuration"
-  File "configuration\logging_properties.cfg"
+  File "configuration\logging_properties_nt.cfg"
   
   # scripts directory
   SetOutPath "$INSTDIR\scripts"
@@ -401,7 +401,7 @@ Section Uninstall
   Delete "$INSTDIR\uninst.exe"
   Delete "$INSTDIR\configuration\bitlocker.key"
   Delete "$INSTDIR\configuration\policyagent_nt.properties"
-  Delete "$INSTDIR\configuration\logging_properties.cfg"
+  Delete "$INSTDIR\configuration\logging_properties_nt.cfg"
   Delete "$INSTDIR\bin\__init__.py"
   Delete "$INSTDIR\bin\__init__.pyc"
   Delete "$INSTDIR\bin\trustpolicy\__init__.pyc"
