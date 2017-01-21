@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.intel.mtwilson.policyagent.packages</groupId>
     <artifactId>mtwilson-policyagent-windows</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    <version>3.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>Policy Agent Windows Installer</name>
     <description>Windows installer that installs Policy Agent and its bundled requirements on Windows</description>
@@ -30,7 +30,7 @@
         <dependency>
             <groupId>com.intel.mtwilson.policyagent</groupId>
             <artifactId>mtwilson-policyagent-zip</artifactId>
-            <version>0.1-SNAPSHOT</version>
+            <version>${project.version}</version>
             <type>zip</type>
         </dependency>
         <dependency>
