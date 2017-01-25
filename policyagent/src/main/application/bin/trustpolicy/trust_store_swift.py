@@ -10,12 +10,16 @@ class TrustPolicyStore:
     def __init__(self):
         self.log = logging.getLogger(TrustPolicyStore.MODULE_NAME)
 
-    def getPolicy(self, image_id, pa_config, policy_attrs):
+    def getPolicy(self, args, pa_config):
         try:
+            if not os.name == 'nt':
+                image_id = args['base_image_id']
+            else:
+                image_id = args['image_id']
             instances_dir = pa_config['INSTANCES_DIR']
             tarfile = os.path.join(instances_dir.strip(), '_base', image_id)
             dest = tarfile + '_temp'
-            policy_url = policy_attrs['mtwilson_trustpolicy_location'].split(':',1)[1]
+            policy_url = args['mtwilson_trustpolicy_location'].split(':',1)[1]
             if policy_url is None:
                 self.log.error("Trustpolicy file location is not provided for image {}".format(image_id))
                 raise Exception("Trustpolicy file location is not provided for image {}".format(image_id))
