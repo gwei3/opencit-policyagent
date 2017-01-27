@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.intel.mtwilson.policyagent.packages</groupId>
     <artifactId>mtwilson-policyagent-windows</artifactId>
-    <version>3.1-SNAPSHOT</version>
+    <version>0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>Policy Agent Windows Installer</name>
     <description>Windows installer that installs Policy Agent and its bundled requirements on Windows</description>
@@ -10,7 +10,7 @@
     <parent>
         <groupId>com.intel.mtwilson.maven</groupId>
         <artifactId>mtwilson-maven-package-makeself</artifactId>
-        <version>3.0-SNAPSHOT</version>
+        <version>3.1-SNAPSHOT</version>
     </parent>
 
     <properties>
@@ -30,13 +30,13 @@
         <dependency>
             <groupId>com.intel.mtwilson.policyagent</groupId>
             <artifactId>mtwilson-policyagent-zip</artifactId>
-            <version>${project.version}</version>
+            <version>3.1-SNAPSHOT</version>
             <type>zip</type>
         </dependency>
         <dependency>
             <groupId>com.intel.mtwilson.linux</groupId>
             <artifactId>mtwilson-linux-util</artifactId>
-            <version>${mtwilson.version}</version>
+            <version>3.1-SNAPSHOT</version>
             <type>sh</type>
         </dependency>
 
@@ -75,7 +75,7 @@
                                     <arguments>
                                         <argument>makezip-auto.sh</argument>
                                         <argument>${makeself.directory}</argument>
-                                        <argument>${project.version}</argument>
+                                        <argument>3.1-SNAPSHOT</argument>
                                     </arguments>
                                 </configuration>
                             </execution>
