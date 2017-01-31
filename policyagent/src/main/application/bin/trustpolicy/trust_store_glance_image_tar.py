@@ -8,8 +8,12 @@ class TrustPolicyStore:
     def __init__(self):
         self.log = logging.getLogger(__name__)
 
-    def getPolicy(self, image_id, pa_config, policy_attrs):
+    def getPolicy(self, args, pa_config):
         try:
+            if not os.name == 'nt':
+                image_id = args['base_image_id']
+            else:
+                image_id = args['image_id']
             instances_dir = pa_config['INSTANCES_DIR']
             tarfile = os.path.join(instances_dir.strip(), '_base', image_id)
             dest = tarfile + '_temp'
@@ -29,11 +33,13 @@ class TrustPolicyStore:
                         trust_policy = tarfile + '.trustpolicy.xml'
                         src = os.path.join(dest, f)
                         shutil.copy(src, trust_policy)
-                        os.chmod(trust_policy, 0644)
+                        if not os.name == 'nt':
+                            os.chmod(trust_policy, 0644)
                     else:
                         src = os.path.join(dest, f)
                         shutil.move(src, tarfile)
-                        os.chown(tarfile, st.st_uid, st.st_gid)
+                        if not os.name == 'nt':
+                            os.chown(tarfile, st.st_uid, st.st_gid)
                         os.chmod(tarfile, 0644)
                 shutil.rmtree(dest)
                 return trust_policy
@@ -41,8 +47,8 @@ class TrustPolicyStore:
                 #if the provided file is not a tar file then it was already downloaded and it's policy already exists
                 trust_policy = tarfile + '.trustpolicy.xml'
                 if not os.path.exists(trust_policy):
-                    self.log.error(tarfile + ".xml" + " not exists")
-                    raise Exception(tarfile + ".xml" + " not exists")
+                    self.log.error(trust_policy + " not exists")
+                    raise Exception(trust_policy + " not exists")
                 return trust_policy
         except Exception as e:
             self.log.exception("Failed while requesting policy : "+ str(e.message))
