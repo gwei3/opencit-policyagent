@@ -27,8 +27,8 @@ if [ -z "$makezip" ]; then
 fi
 
 # unzip the trustagent-3.0-SNAPSHOT.zip since we are going to zip it again
-policyagentZip="mtwilson-policyagent-zip-${projectVersion}.zip"
 cd $targetDir/${projectNameVersion}
+policyagentZip=$(ls mtwilson-policyagent-zip-*.zip 2>/dev/null | head -1)
 unzip ${policyagentZip}
 
 # instead of making a zip file, we run makesis to generate the trustagent windows installer
