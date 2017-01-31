@@ -10,7 +10,8 @@
     <parent>
         <groupId>com.intel.mtwilson.maven</groupId>
         <artifactId>mtwilson-maven-package-makeself</artifactId>
-        <version>3.1-SNAPSHOT</version>
+        <version>3.2-SNAPSHOT</version>
+        <relativePath/>
     </parent>
 
     <properties>
@@ -30,13 +31,13 @@
         <dependency>
             <groupId>com.intel.mtwilson.policyagent</groupId>
             <artifactId>mtwilson-policyagent-zip</artifactId>
-            <version>3.1-SNAPSHOT</version>
+            <version>3.2-SNAPSHOT</version>
             <type>zip</type>
         </dependency>
         <dependency>
             <groupId>com.intel.mtwilson.linux</groupId>
             <artifactId>mtwilson-linux-util</artifactId>
-            <version>3.1-SNAPSHOT</version>
+            <version>3.2-SNAPSHOT</version>
             <type>sh</type>
         </dependency>
 
@@ -75,7 +76,7 @@
                                     <arguments>
                                         <argument>makezip-auto.sh</argument>
                                         <argument>${makeself.directory}</argument>
-                                        <argument>3.1-SNAPSHOT</argument>
+                                        <argument>3.2-SNAPSHOT</argument>
                                     </arguments>
                                 </configuration>
                             </execution>
