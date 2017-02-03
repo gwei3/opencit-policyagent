@@ -19,13 +19,6 @@ targetDir=`dirname "${workspace}"`
 # ensure all executable files in the target folder have the x bit set
 #chmod +x $workspace/*.sh 
 
-# check for the makeself tool
-makezip=`which zip`
-if [ -z "$makezip" ]; then
-    echo "Missing zip tool"
-    exit 1
-fi
-
 # unzip the trustagent-3.0-SNAPSHOT.zip since we are going to zip it again
 cd $targetDir/${projectNameVersion}
 policyagentZip=$(ls mtwilson-policyagent-zip-*.zip 2>/dev/null | head -1)
@@ -39,7 +32,7 @@ if [ -z "$MAKENSIS" ]; then
 fi
 
 cd $targetDir
-$MAKENSIS "${projectNameVersion}/policyagentinstallscript.nsi"
+"$MAKENSIS" "${projectNameVersion}/policyagentinstallscript.nsi"
 mv "${projectNameVersion}/policyagent-setup.exe" "${projectNameVersion}.exe"
 
 # This is not necessary, but to zip it
