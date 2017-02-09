@@ -258,7 +258,7 @@ def container_launch(args):
         xml_string = vrtm.vrtm_generate_xml('method', '-mount_path', mount_path, '-manifest', os.path.join(container_dir,'trustpolicy.xml'), '-uuid', args['container_id'], '-name', container_name, '-docker_instance')
         LOG.info('vRTM Request : ')
         LOG.info(xml_string)
-        vrtm.measure_vm(xml_string, {'VRTM_IP' : vrtm_config['rpcore_ip'], 'VRTM_PORT' : vrtm_config['rpcore_port']})
+        vrtm.measure_vm(xml_string, {'VRTM_IP' : vrtm_config['vrtmcore_ip'], 'VRTM_PORT' : vrtm_config['vrtmcore_port']})
     else :
         LOG.info("Mtwilson trustpolicy doesn not exists. Continuing with non measured launch.")
 
@@ -286,7 +286,7 @@ def invoke_vrtm(args):
     xml_string = vrtm.vrtm_generate_xml('method', '-disk', disk_location, '-uuid', args['instance_id'])
     LOG.info('vRTM Request : ')
     LOG.info(xml_string)
-    vrtm.measure_vm(xml_string, {'VRTM_IP' : '127.0.0.1', 'VRTM_PORT' : '16005'})
+    vrtm.measure_vm(xml_string, {'VRTM_IP' : vrtm_config['vrtmcore_ip'], 'VRTM_PORT' : vrtm_config['vrtmcore_port']})
 
 def create_instance_directory_symlink(args):
     LOG.debug("args : %s ",args)
