@@ -43,8 +43,9 @@ def prepare_trusted_image(args):
                 #Here we get the policy from the store which we retrieved from the previous step
                 policy_location = store.getPolicy(args, config)
                 LOG.info("policy_location : " + policy_location)
-                #copy the policy in the instance drirectory
-                shutil.copy(policy_location, os.path.join(instance_dir,'trustpolicy.xml'))
+                if not os.name == 'nt':
+                    #copy the policy in the instance drirectory
+                    shutil.copy(policy_location, os.path.join(instance_dir,'trustpolicy.xml'))
             else:
                 LOG.exception("Mtwilson_trustpolicy_location is None")
                 raise Exception("Mtwilson_trustpolicy_location is None")
@@ -56,8 +57,9 @@ def prepare_trusted_image(args):
                         LOG.error("Image ID from trustpolicy: " + xml_parser.retrieve_image_id())
                         LOG.error("Actual Image ID: " + args['image_id'])
                         raise Exception("Image ID mismatch")
-                    #generate stripped xml with whitelist
-                    xml_parser.generate_manifestlist_xml(instance_dir)
+                    if not os.name == 'nt':
+                        #generate stripped xml with whitelist
+                        xml_parser.generate_manifestlist_xml(instance_dir)
                     #retrieve encryption element which has dek_url and checksum
                     encryption_element = xml_parser.retrieve_chksm()
                     if encryption_element is not None:
@@ -84,8 +86,11 @@ def prepare_trusted_image(args):
                         if current_md5 != encryption_element['CHECKSUM']:
                             LOG.exception("checksum mismatch")
                             raise Exception("checksum mismatch")
-                if not os.name == 'nt':
-                    create_trust_reports_dir(args)
+                    if not os.name == 'nt':
+                        create_trust_reports_dir(args, policy_location, xml_parser)
+                else:
+                    LOG.exception("Trust policy verification failed.")
+                    raise Exception("Trust policy verification failed.")
             else:
                 LOG.exception("Policy location has None value")
                 raise Exception("Policy location has None value")
@@ -96,7 +101,7 @@ def prepare_trusted_image(args):
         LOG.exception("Failed during launch call " + str(e.message))
         raise e
 		
-def create_trust_reports_dir(args):
+def create_trust_reports_dir(args, policy_location, xml_parser):
     if not os.path.exists(vrtm_config['trust_report_dir']):
         os.mkdir(vrtm_config['trust_report_dir'])
         if not os.name == 'nt':
@@ -107,12 +112,16 @@ def create_trust_reports_dir(args):
         os.mkdir(trustreport_instance_dir)
         if not os.name == 'nt':
             os.chmod(trustreport_instance_dir, 0775)
-    shutil.copy(os.path.join(instance_dir,'trustpolicy.xml'), os.path.join(trustreport_instance_dir,'trustpolicy.xml'))
     if not os.name == 'nt':
+        shutil.copy(os.path.join(instance_dir,'trustpolicy.xml'), os.path.join(trustreport_instance_dir,'trustpolicy.xml'))
         os.chmod(os.path.join(trustreport_instance_dir, 'trustpolicy.xml'), 0664)
-    shutil.copy(os.path.join(instance_dir,'manifest.xml'), os.path.join(trustreport_instance_dir,'manifest.xml'))
+    else:
+        shutil.copy(policy_location, os.path.join(trustreport_instance_dir,'trustpolicy.xml'))
     if not os.name == 'nt':
+        shutil.copy(os.path.join(instance_dir,'manifest.xml'), os.path.join(trustreport_instance_dir,'manifest.xml'))
         os.chmod(os.path.join(trustreport_instance_dir, 'manifest.xml'), 0664)
+    else:
+        xml_parser.generate_manifestlist_xml(trustreport_instance_dir)
 
 def delete(args):
     try :
@@ -289,7 +298,6 @@ def invoke_vrtm(args):
     vrtm.measure_vm(xml_string, {'VRTM_IP' : '127.0.0.1', 'VRTM_PORT' : '16005'})
 
 def create_instance_directory_symlink(args):
-    LOG.debug("args : %s ",args)
     policy_location = os.path.join(config['INSTANCES_DIR'], '_base', args['image_id']) + '.trustpolicy.xml'
     xml_parser = ProcessTrustpolicyXML(policy_location)
     encryption_element = xml_parser.retrieve_chksm()
@@ -329,8 +337,8 @@ if __name__ == "__main__":
         #prepare_trusted_image command parser
         launch_parser = subparsers.add_parser("prepare_trusted_image")
         launch_parser.add_argument("base_image")
-        launch_parser.add_argument("instance_id")
         launch_parser.add_argument("image_id")
+        launch_parser.add_argument("instance_id")
         launch_parser.add_argument("mtwilson_trustpolicy_location")
         launch_parser.add_argument("root_disk_size_gb", type=int)
         launch_parser.set_defaults(func = prepare_trusted_image)
