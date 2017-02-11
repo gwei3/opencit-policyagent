@@ -121,6 +121,11 @@ class Crypt(object):
             loop_dev = utils.get_loop_device(sparse_file_path)
             if format_device:
                 # Format device using cryptsetup for encryption
+                with open(self.pa_config['TRUST_AGENT_LIB']) as f:
+                    for line in f:
+                        eq_index = line.find('=')
+                        val = line[eq_index+1:].strip()
+                os.environ['LD_LIBRARY_PATH'] = val # visible in this process + all children
                 luks_format_proc_1 = utils.create_subprocess(
                     [self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],
                      '-i', key_path, '-q', ta_config['binding.key.secret'], '-x'])
