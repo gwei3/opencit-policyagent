@@ -105,9 +105,9 @@ def untar(src, dest):
         raise e
 
 
-def create_subprocess(command, stdin=None):
+def create_subprocess(command, stdin=None, env=None):
     try:
-        poutput = Popen(command, stdin=stdin, stdout=PIPE, stderr=PIPE)
+        poutput = Popen(command, stdin=stdin, stdout=PIPE, stderr=PIPE, env=env)
         LOG.debug("Executing command : " + str(command))
         return poutput
     except Exception as e:
