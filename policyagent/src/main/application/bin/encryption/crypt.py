@@ -357,12 +357,10 @@ class Crypt(object):
                              '-i', key_path, '-q', ta_config['binding.key.secret'], '-x'],
 							 env=self.__get_ld_library_env())
                         make_tpm_proc_1 = utils.create_subprocess(['openssl', 'enc', '-base64'],
-                                                                  stdin=make_tpm_proc.stdout,
-																  env=self.__get_ld_library_env())
+                                                                  stdin=make_tpm_proc.stdout)
                         make_openssl_decrypt_proc = utils.create_subprocess(
                             ['openssl', 'enc', '-d', '-aes-128-ofb', '-in', image,
-                             '-out', dec_file, '-pass', 'stdin'], make_tpm_proc_1.stdout,
-							 env=self.__get_ld_library_env())
+                             '-out', dec_file, '-pass', 'stdin'], make_tpm_proc_1.stdout)
                         utils.call_subprocess(make_openssl_decrypt_proc)
                         if make_openssl_decrypt_proc.returncode != 0:
                             LOG.error("Failed while decrypting image..Exit code = " + str(
