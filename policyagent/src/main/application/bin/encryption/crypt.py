@@ -42,6 +42,13 @@ class Crypt(object):
         #clean the temporary file after readng it
         os.remove(os.path.join("/tmp", TA_PROP_FILE))
 
+    def __get_ld_library_env(self):
+        with open(self.pa_config['TRUST_AGENT_LIB']) as f:
+            for line in f:
+                eq_index = line.find('=')
+                ld_library_path = line[eq_index+1:].strip()
+        return {'LD_LIBRARY_PATH': ld_library_path}
+			
     # Function to request key to KMS
     def __kms_request_key(self, aik_dir, dek_url, key_path):
         LOG.debug("kms proxy ip address :" + self.pa_config['KMSPROXY_SERVER'])
@@ -123,7 +130,8 @@ class Crypt(object):
                 # Format device using cryptsetup for encryption
                 luks_format_proc_1 = utils.create_subprocess(
                     [self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],
-                     '-i', key_path, '-q', ta_config['binding.key.secret'], '-x'])
+                     '-i', key_path, '-q', ta_config['binding.key.secret'], '-x'],
+					 env=self.__get_ld_library_env())
                 luks_format_proc_2 = utils.create_subprocess(
                     ['cryptsetup', '-v', '--batch-mode', 'luksFormat', '--key-file=-', loop_dev],
                     stdin=luks_format_proc_1.stdout)
@@ -143,7 +151,8 @@ class Crypt(object):
                 LOG.debug("Opening device: " + device_mapper)
                 luks_open_proc_1 = utils.create_subprocess(
                     [self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],
-                     '-i', key_path, '-q', ta_config['binding.key.secret'], '-x'])
+                     '-i', key_path, '-q', ta_config['binding.key.secret'], '-x'],
+					 env=self.__get_ld_library_env())
                 luks_open_proc_2 = utils.create_subprocess(
                     ['cryptsetup', '-v', 'luksOpen', '--key-file=-', loop_dev, image_id],
                     stdin=luks_open_proc_1.stdout)
@@ -183,14 +192,16 @@ class Crypt(object):
                 if os.path.exists(self.pa_config['AIK_BLOB_FILE']):
                     create_xen_tpm_proc = utils.create_subprocess(
                         [self.pa_config['XEN_TPM'], '--get_aik_pem', self.pa_config['AIK_BLOB_FILE'],
-                         '>', '/tmp' + Crypt.AIK_PEM])
+                         '>', '/tmp' + Crypt.AIK_PEM],
+						 env=self.__get_ld_library_env())
                     utils.call_subprocess(create_xen_tpm_proc)
                     if create_xen_tpm_proc.returncode != 0:
                         LOG.error("Failed while requesting key..Exit code = " + str(create_xen_tpm_proc.returncode))
                         raise Exception("Failed while requesting key ")
                 else:
                     create_xen_tpm_proc = utils.create_subprocess(
-                        [self.pa_config['XEN_TPM'], '--get_aik_pem', '>', '/tmp' + Crypt.AIK_PEM])
+                        [self.pa_config['XEN_TPM'], '--get_aik_pem', '>', '/tmp' + Crypt.AIK_PEM],
+						env=self.__get_ld_library_env())
                     utils.call_subprocess(create_xen_tpm_proc)
                     if create_xen_tpm_proc.returncode != 0:
                         LOG.error("Failed while requesting key..Exit code = " + str(create_xen_tpm_proc.returncode))
@@ -343,7 +354,8 @@ class Crypt(object):
                     if not os.path.isfile(dec_file):
                         make_tpm_proc = utils.create_subprocess(
                             [self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],
-                             '-i', key_path, '-q', ta_config['binding.key.secret'], '-x'])
+                             '-i', key_path, '-q', ta_config['binding.key.secret'], '-x'],
+							 env=self.__get_ld_library_env())
                         make_tpm_proc_1 = utils.create_subprocess(['openssl', 'enc', '-base64'],
                                                                   stdin=make_tpm_proc.stdout)
                         make_openssl_decrypt_proc = utils.create_subprocess(
