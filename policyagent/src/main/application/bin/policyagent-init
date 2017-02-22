@@ -29,6 +29,7 @@ sleep 10
 case "$1" in
  start)
     echo "policyagent-init : Starting up policyagent-init"
+	sleep 30
     echo "Start call received" >> $logfile
     echo "Initial mounts ===========" >> $logfile
     mount >> $logfile
