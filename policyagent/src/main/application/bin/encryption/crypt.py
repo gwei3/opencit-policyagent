@@ -47,7 +47,9 @@ class Crypt(object):
             for line in f:
                 eq_index = line.find('=')
                 ld_library_path = line[eq_index+1:].strip()
-        return {'LD_LIBRARY_PATH': ld_library_path}
+        path = os.getenv('PATH')
+        path = path + ":/usr/local/sbin"
+        return {'LD_LIBRARY_PATH': ld_library_path, 'PATH': path}
 			
     # Function to request key to KMS
     def __kms_request_key(self, aik_dir, dek_url, key_path):

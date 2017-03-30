@@ -15,6 +15,7 @@
 ;Changes to read ini file
 !include "FileFunc.nsh"
 !include "WinMessages.nsh"
+!include "TextFunc.nsh"
 
 ; MUI Settings
 !define MUI_ABORTWARNING
@@ -47,6 +48,7 @@ Page Custom getDriveLetterStart getDriveLetterEnd
 
 ; Language files
 !insertmacro MUI_LANGUAGE "English"
+!insertmacro ConfigWrite
 
 ; MUI end ------
 
@@ -65,10 +67,12 @@ Var /Global property
 Var /Global property_file
 Var /Global INIFILE
 Var /Global uniqueDrive
+Var /Global KMSPROXY_SERVER
+Var /Global KMSPROXY_SERVER_PORT
 
 Function getVolumeStart
 !insertmacro MUI_HEADER_TEXT $(TITLE) $(SUBTITLE)
-ReadINIStr $drive "$INIFILE" "POLICY_AGENT" "DriveUsedForEncryption"
+ReadINIStr $drive "$INIFILE" "POLICY_AGENT" "DriveUsedForPartition"
 
 ${If} $drive != ""
       StrCpy $radiobutton1_state ${BST_CHECKED}
@@ -144,6 +148,16 @@ File "scripts\bitlocker_drive_setup.ps1"
 SetOutPath "$INSTDIR\configuration"
 File "configuration\policyagent_nt.properties"
 
+ReadINIStr $KMSPROXY_SERVER "$INIFILE" "POLICY_AGENT" "KMSPROXY_SERVER"
+ReadINIStr $KMSPROXY_SERVER_PORT "$INIFILE" "POLICY_AGENT" "KMSPROXY_SERVER_PORT"
+${If} $KMSPROXY_SERVER != ""
+      ${ConfigWrite} "$INSTDIR\configuration\policyagent_nt.properties" "KMSPROXY_SERVER=" "$KMSPROXY_SERVER" $0
+${EndIf}
+
+${If} $KMSPROXY_SERVER_PORT != ""
+     ${ConfigWrite} "$INSTDIR\configuration\policyagent_nt.properties" "KMSPROXY_SERVER_PORT=" "$KMSPROXY_SERVER_PORT" $0
+${EndIf}
+
 ${If} $radiobutton2_state == ${BST_CHECKED}
       StrCpy $0 $SYSDIR 1
       ${If} $drive == $0
@@ -166,9 +180,9 @@ FunctionEnd
 
 Function getSizeStart
 !insertmacro MUI_HEADER_TEXT $(TITLE) $(SUBTITLE)
-ReadINIStr $size "$INIFILE" "POLICY_AGENT" "SizeToShrink"
+ReadINIStr $size "$INIFILE" "POLICY_AGENT" "SizeOfNewPartition"
 ${If} $size == ""
-        MessageBox MB_OK "Size can't be left blank. Please configure SizeToShrink attribute under POLICY_AGENT section of system.ini"
+        MessageBox MB_OK "Size can't be left blank. Please configure SizeOfNewPartition attribute under POLICY_AGENT section of system.ini"
         Abort
 ${EndIf}
 ${If} $radiobutton2_state == ${BST_CHECKED}
@@ -191,12 +205,12 @@ equal:
 morethan:
   Goto done
 lessthan:
-  MessageBox MB_OK "Maximum amount of reclaimable size is $R2, SizeToShrink value under POLICY_AGENT section of system.ini should be less than $R2"
+  MessageBox MB_OK "Maximum amount of reclaimable size is $R2, SizeOfNewPartition value under POLICY_AGENT section of system.ini should be less than $R2"
   Abort
 done:
 
 ;${If} ${$R2} < ${$size}
-;      MessageBox MB_OK "Maximum amount of reclaimable size is $R2, SizeToShrink value under POLICY_AGENT section of system.ini should be less than $R2"
+;      MessageBox MB_OK "Maximum amount of reclaimable size is $R2, SizeOfNewPartition value under POLICY_AGENT section of system.ini should be less than $R2"
 ;      Abort
 ;${EndIf}
 ;${If} ${$R2} > ${$size}
@@ -219,7 +233,7 @@ FunctionEnd
 
 Function getDriveLetterStart
 !insertmacro MUI_HEADER_TEXT $(TITLE) $(SUBTITLE)
-ReadINIStr $uniqueDrive "$INIFILE" "POLICY_AGENT" "UniqueDriveForNewVolume"
+ReadINIStr $uniqueDrive "$INIFILE" "POLICY_AGENT" "DriveUsedForEncryption"
 ${If} $uniqueDrive == ""
         StrCpy $uniqueDrive "Z"
 ${EndIf}
@@ -351,7 +365,7 @@ Function .onInit
         MessageBox MB_OK "System Configuration file doesn't exists in installer folder"
         Abort
   check_unique_drive_letter:
-  ReadINIStr $uniqueDrive "$INIFILE" "POLICY_AGENT" "UniqueDriveForNewVolume"
+  ReadINIStr $uniqueDrive "$INIFILE" "POLICY_AGENT" "DriveUsedForEncryption"
         ${If} $uniqueDrive == ""
               MessageBox MB_OK "Please configure UniqueDrive name in system.ini"
               Abort
