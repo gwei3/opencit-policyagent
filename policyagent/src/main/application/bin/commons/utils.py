@@ -115,7 +115,7 @@ def create_subprocess(command, stdin=None, env=None):
         raise e
 
 
-def call_subprocess(poutput):
+def call_subprocess(poutput, data=None):
     """This function executes subprocess (in form of Popen object) and returns
     tuple (stdout, stderr).
     Caller can check exit code of the subprocess using Popen object's 'returncode' method.
@@ -124,7 +124,7 @@ def call_subprocess(poutput):
     :param poutput: Popen object containing subprocess command
     """
     try:
-        output = poutput.communicate()
+        output = poutput.communicate(input=data)
         LOG.debug("Exit status: " + str(poutput.returncode))
         if poutput.returncode != 0:
             LOG.warning("Process returned non-zero exit code: " + str(poutput.returncode))
