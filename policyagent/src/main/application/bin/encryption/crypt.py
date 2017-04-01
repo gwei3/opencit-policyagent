@@ -5,6 +5,7 @@ import logging
 import time
 from commons.parse import ParseProperty
 import commons.utils as utils
+from subprocess import PIPE
 
 #import sys
 #reload(sys)
@@ -134,10 +135,16 @@ class Crypt(object):
                     [self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],
                      '-i', key_path, '-q', ta_config['binding.key.secret'], '-x'],
 					 env=self.__get_ld_library_env())
+                output = utils.call_subprocess(luks_format_proc_1)
+                if luks_format_proc_1.returncode != 0:
+                    LOG.error("Failed while unbinding key. Exit code = " + str(
+                    luks_format_proc_1.returncode))
+                    raise Exception("Failed while unbinding key.")
+                dec_key = output[0]
                 luks_format_proc_2 = utils.create_subprocess(
                     ['cryptsetup', '-v', '--batch-mode', 'luksFormat', '--key-file=-', loop_dev],
-                    stdin=luks_format_proc_1.stdout)
-                utils.call_subprocess(luks_format_proc_2)
+                    stdin=PIPE)
+                utils.call_subprocess(luks_format_proc_2, dec_key)
                 if luks_format_proc_2.returncode != 0:
                     LOG.error("Failed while formatting loop device " + loop_dev + " ..exit code = " + str(
                         luks_format_proc_2.returncode))
@@ -155,15 +162,21 @@ class Crypt(object):
                     [self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],
                      '-i', key_path, '-q', ta_config['binding.key.secret'], '-x'],
 					 env=self.__get_ld_library_env())
+                output = utils.call_subprocess(luks_open_proc_1)
+                if luks_open_proc_1.returncode != 0:
+                    LOG.error("Failed while unbinding key. Exit code = " + str(
+                    luks_open_proc_1.returncode))
+                    raise Exception("Failed while unbinding key.")
+                dec_key = output[0]
                 luks_open_proc_2 = utils.create_subprocess(
                     ['cryptsetup', '-v', 'luksOpen', '--key-file=-', loop_dev, image_id],
-                    stdin=luks_open_proc_1.stdout)
-                utils.call_subprocess(luks_open_proc_2)
+                    stdin=PIPE)
+                utils.call_subprocess(luks_open_proc_2, dec_key)
                 if luks_open_proc_2.returncode != 0:
-                    LOG.error(
-                        "Failed while key unbinding....Key =  " + key_path + " Loop device = " + loop_dev + "Exit code=" + str(
-                            luks_open_proc_2.returncode))
-                    raise Exception("Failed while key unbinding ..Key =  " + key_path + " Loop device = " + loop_dev)
+                    LOG.error("Failed while opening loop device " + loop_dev + " ..exit code = " + str(
+                        luks_open_proc_2.returncode))
+                    raise Exception("Failed while opening loop device " + loop_dev)
+                LOG.debug("Loop device openend successfully.")
             if format_device:
                 # Format device with ext4 filesystem
                 LOG.debug("Formating device: " + device_mapper)
@@ -358,12 +371,24 @@ class Crypt(object):
                             [self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],
                              '-i', key_path, '-q', ta_config['binding.key.secret'], '-x'],
 							 env=self.__get_ld_library_env())
+                        output = utils.call_subprocess(make_tpm_proc)
+                        if make_tpm_proc.returncode != 0:
+                            LOG.error("Failed while unbinding key. Exit code = " + str(
+                            make_tpm_proc.returncode))
+                            raise Exception("Failed while unbinding key.")
+                        dec_key = output[0]
                         make_tpm_proc_1 = utils.create_subprocess(['openssl', 'enc', '-base64'],
-                                                                  stdin=make_tpm_proc.stdout)
+                                                                  stdin=PIPE)
+                        output = utils.call_subprocess(make_tpm_proc_1, dec_key)
+                        if make_tpm_proc_1.returncode != 0:
+                            LOG.error("Failed while encoding key. Exit code = " + str(
+                            make_tpm_proc_1.returncode))
+                            raise Exception("Failed while encoding key.")
+                        dec_key = output[0]
                         make_openssl_decrypt_proc = utils.create_subprocess(
                             ['openssl', 'enc', '-d', '-aes-128-ofb', '-in', image,
-                             '-out', dec_file, '-pass', 'stdin'], make_tpm_proc_1.stdout)
-                        utils.call_subprocess(make_openssl_decrypt_proc)
+                             '-out', dec_file, '-pass', 'stdin'], PIPE)
+                        utils.call_subprocess(make_openssl_decrypt_proc, dec_key)
                         if make_openssl_decrypt_proc.returncode != 0:
                             LOG.error("Failed while decrypting image..Exit code = " + str(
                                 make_openssl_decrypt_proc.returncode))
