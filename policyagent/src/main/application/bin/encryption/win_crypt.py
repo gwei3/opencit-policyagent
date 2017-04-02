@@ -3,10 +3,9 @@ import shutil
 import requests
 import logging
 import time
-import base64
 from commons.parse import ParseProperty
 import commons.utils as utils
-from hashlib import md5
+from subprocess import PIPE
 
 LOG = None
 ta_config = None
@@ -174,13 +173,20 @@ class WinCrypt(object):
                         make_tpm_proc = utils.create_subprocess(
                             [self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],
                              '-i', key_path, '-q', ta_config['binding.key.secret'], '-b', self.pa_config['PRIVATE_KEY_BLOB']])
-                        make_tpm_proc_1 = utils.create_subprocess(['python', '-m', 'base64', '-e'],
-                                                                  stdin=make_tpm_proc.stdout)
-                        dec_key, dec_err = utils.call_subprocess(make_tpm_proc_1)
-                        if make_tpm_proc_1.returncode != 0:
+                        output = utils.call_subprocess(make_tpm_proc)
+                        if make_tpm_proc.returncode != 0:
                             LOG.error("Failed while unbinding key. Exit code = " + str(
-                                make_tpm_proc_1.returncode))
+                            make_tpm_proc.returncode))
                             raise Exception("Failed while unbinding key.")
+                        dec_key = output[0]
+                        make_tpm_proc_1 = utils.create_subprocess(['python', '-m', 'base64', '-e'],
+                                                                  stdin=PIPE)
+                        output = utils.call_subprocess(make_tpm_proc_1, dec_key)
+                        if make_tpm_proc_1.returncode != 0:
+                            LOG.error("Failed while encoding key. Exit code = " + str(
+                                make_tpm_proc_1.returncode))
+                            raise Exception("Failed while encoding key.")
+                        dec_key = output[0]
                         with open(image, 'rb') as in_file, open(dec_file, 'wb') as out_file:
                             utils.aes_decrypt(in_file, out_file, dec_key)
                     else:
