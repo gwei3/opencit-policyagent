@@ -56,7 +56,7 @@ namespace BitLocker
             try
             {
                 myProcess.StartInfo.FileName = "powershell";
-                myProcess.StartInfo.Arguments = "-noprofile -executionpolicy bypass -file \"C:\\Program Files (x86)\\Intel\\Policy Agent\\scripts\\unlock_bitlocker_drive.ps1\"";
+                myProcess.StartInfo.Arguments = "-noprofile -executionpolicy bypass -file \"C:\\Program Files (x86)\\Intel\\Policyagent\\scripts\\unlock_bitlocker_drive.ps1\"";
                 myProcess.StartInfo.UseShellExecute = false;
                 myProcess.StartInfo.CreateNoWindow = true;
                 myProcess.Start();
