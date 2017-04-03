@@ -169,7 +169,7 @@ class WinCrypt(object):
                     os.makedirs(dec_dir)
                 if os.path.getsize(key_path) != 0:
                     if not os.path.isfile(dec_file):
-                        os.chdir('C:\Program Files (x86)\Intel\Policy Agent\\bin')
+                        os.chdir('C:\Program Files (x86)\Intel\Policyagent\\bin')
                         make_tpm_proc = utils.create_subprocess(
                             [self.pa_config['TPM_UNBIND_AES_KEY'], '-k', self.pa_config['PRIVATE_KEY'],
                              '-i', key_path, '-q', ta_config['binding.key.secret'], '-b', self.pa_config['PRIVATE_KEY_BLOB']])
