@@ -97,7 +97,7 @@ class VRTMInvoke(object):
         try:
             self.__socket.shutdown(socket.SHUT_RDWR)
             self.__socket.close()
-            self.log_obj.exception("VRTM connection is closed!")
+            self.log_obj.info("VRTM connection is closed!")
         except:
             # it only comes if connection is already close, we don't need to bother about it
             pass

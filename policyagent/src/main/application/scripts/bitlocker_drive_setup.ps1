@@ -3,7 +3,7 @@ param(
 [string]$drive
 )
 
-$log_file = "C:\Program Files (x86)\Intel\Policy Agent\logs\bitlockersetup.log"
+$log_file = "C:\Program Files (x86)\Intel\Policyagent\logs\bitlockersetup.log"
 New-Item $log_file -type file -force
 "######################## Setting up bitlocker drive on $drive ############################" | Out-file $log_file -Append
 
@@ -30,7 +30,7 @@ Else
 	return $isInstalled
 }
 
-$key_file = "C:\Program Files (x86)\Intel\Policy Agent\configuration\bitlocker.key"
+$key_file = "C:\Program Files (x86)\Intel\Policyagent\configuration\bitlocker.key"
 Get-Random | Out-File $key_file
 
 #Get-Random | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString | Out-File $key_file
@@ -64,7 +64,7 @@ If($?)
 
 
 #Register service which calls binary to unlock drive after boot
-New-Service -Name UnlockDrive -BinaryPathName "C:\Program Files (x86)\Intel\Policy Agent\bin\BitLocker.exe" -DisplayName "Intel CIT UnlockDrive" -StartupType Automatic
+New-Service -Name UnlockDrive -BinaryPathName "C:\Program Files (x86)\Intel\Policyagent\bin\BitLocker.exe" -DisplayName "Intel CIT UnlockDrive" -StartupType Automatic
 (Get-Date).ToString() + " UnlockDrive registered as autostart service to unlock drive on bootup of machine" | Out-file $log_file -Append
 
 #Start UnlockDrive service
