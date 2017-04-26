@@ -16,8 +16,14 @@
 		<condition property="cmd.maven" value="mvn.cmd">
 			<os family="windows"/>
 		</condition>
+                <condition property="isWindows" value="true">
+                        <os family="windows" />
+                </condition>
 		<condition property="cmd.maven" value="mvn">
 			<os family="unix"/>
+		</condition>                
+                <condition property="isUnix" value="true">
+                        <os family="unix" />
 		</condition>
 	</target>
 	
@@ -49,9 +55,19 @@
 		<fail message="Cannot clean project packages" status="${mavenExitCleanPackages}">
 			<condition><not><equals arg1="${mavenExitCleanPackages}" arg2="0"/></not></condition>
 		</fail>
+                <delete dir="bitlocker_service/BitLocker/bin"/>
+                <delete dir="bitlocker_service/BitLocker/obj"/>
+                <delete file="policyagent/src/main/application/bin/BitLocker.exe"/>
 	</target>
 	
-	<target name="build" depends="init">
+        <target name="build-windows-bitlockerservice" depends="init" if="isWindows">
+		<exec executable="${cmd.maven}"  dir="bitlocker_service" resultproperty="mavenExitInstall">
+			<arg value="-DskipTests=true"/>
+			<arg value="install"/>
+		</exec>
+	</target>
+        
+	<target name="build" depends="init,build-windows-bitlockerservice">
 		<!-- the root pom and all projects except packages -->	
 		<exec executable="${cmd.maven}"  resultproperty="mavenExitInstall">
 			<arg value="-DskipTests=true"/>
