@@ -32,7 +32,6 @@
         </dependency>
     </dependencies>
  
- <!--
     <profiles>
         <profile>
             <activation>
@@ -40,7 +39,6 @@
                     <family>windows</family>
                 </os>
             </activation>
--->
             <build>                              
                 <plugins>
                     <!-- begin deploy installers to repository -->
@@ -156,8 +154,6 @@
                     </plugins>
                 </pluginManagement>
             </build>  
-<!--
      </profile>
     </profiles>
--->
 </project>
