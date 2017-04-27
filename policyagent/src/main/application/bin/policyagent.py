@@ -85,6 +85,12 @@ def prepare_trusted_image(args):
                         LOG.debug("Current md5sum : " + current_md5)
                         if current_md5 != encryption_element['CHECKSUM']:
                             LOG.exception("checksum mismatch")
+                            if not os.name == 'nt':
+                                crypt = Crypt(config=config)
+                                crypt.__decrypt_rollback(args['base_image_id'], args['instance_id'])
+                            else:
+                                wincrypt = WinCrypt(config=config)
+                                wincrypt.__decrypt_rollback(args['image_id'], args['instance_id'])
                             raise Exception("checksum mismatch")
                     if not os.name == 'nt':
                         create_trust_reports_dir(args, policy_location, xml_parser)
@@ -100,7 +106,7 @@ def prepare_trusted_image(args):
     except Exception as e:
         LOG.exception("Failed during launch call " + str(e.message))
         raise e
-		
+
 def create_trust_reports_dir(args, policy_location, xml_parser):
     if not os.path.exists(vrtm_config['trust_report_dir']):
         os.mkdir(vrtm_config['trust_report_dir'])
