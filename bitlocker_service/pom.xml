@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.intel.mtwilson.policyagent</groupId>
         <artifactId>mtwilson-policyagent-maven-build</artifactId>
-        <version>3.1-SNAPSHOT</version>
+        <version>3.2-SNAPSHOT</version>
     </parent>
     <artifactId>bitlockerservice</artifactId>
     <packaging>pom</packaging>
