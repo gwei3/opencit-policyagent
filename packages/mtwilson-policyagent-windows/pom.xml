@@ -9,7 +9,7 @@
     <parent>
         <groupId>com.intel.mtwilson.policyagent.packages</groupId>
         <artifactId>mtwilson-policyagent-maven-build-packages</artifactId>
-        <version>3.2-SNAPSHOT</version>
+        <version>3.2.1-SNAPSHOT</version>
         <relativePath>../</relativePath>
     </parent>
 

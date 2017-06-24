@@ -3,7 +3,7 @@
     
     <artifactId>mtwilson-policyagent-maven-root</artifactId>
     <groupId>com.intel.mtwilson.policyagent</groupId>
-    <version>3.2-SNAPSHOT</version>
+    <version>3.2.1-SNAPSHOT</version>
     
     <packaging>pom</packaging>
     <description>Mtwilson Policy Agent</description>
