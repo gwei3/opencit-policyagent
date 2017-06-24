@@ -38,6 +38,10 @@ if [ $? -ne 0 ]; then echo "Failed to change maven version at top level" >&2; ex
 $changeParentVersionCommand
 if [ $? -ne 0 ]; then echo "Failed to change maven parent versions" >&2; exit 3; fi
 
+(cd bitlocker_service  && $changeVersionCommand)
+if [ $? -ne 0 ]; then echo "Failed to change maven version on \"bitlocker_service\" folder" >&2; exit 3; fi
+(cd bitlocker_service  && $changeParentVersionCommand)
+if [ $? -ne 0 ]; then echo "Failed to change maven parent version in \"bitlocker_service\" folder" >&2; exit 3; fi
 (cd packages  && $changeVersionCommand)
 if [ $? -ne 0 ]; then echo "Failed to change maven version on \"packages\" folder" >&2; exit 3; fi
 (cd packages  && $changeParentVersionCommand)
