@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# chkconfig: 2345 81 30
+
+### BEGIN INIT INFO
+# Provides:          policyagent-init
+# Required-Start:    $local_fs $network $remote_fs tagent
+# Required-Stop:     $local_fs $network $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: policyagent-init
+# Description:       policyagent-init
+### END INIT INFO
+
+# Ensure the script is loaded just after init scripts
+
+logfile=/var/log/policyagent-init.log
+echo "" >> $logfile
+echo "" >> $logfile
+echo " ****************** Start policyagent-init script **************** " >> $logfile
+date >> $logfile
+whoami >> $logfile
+tcsd 2>> $logfile
+ps -ef | grep tcsd >> $logfile
+
+echo "Wait for 10 seconds to start trust agent process" >> $logfile
+sleep 10
+
+case "$1" in
+ start)
+    echo "policyagent-init : Starting up policyagent-init"
+	sleep 30
+    echo "Start call received" >> $logfile
+    echo "Initial mounts ===========" >> $logfile
+    mount >> $logfile
+    echo "Calling policyagent" >> $logfile
+    /usr/local/bin/policyagent remount >> $logfile 2>&1
+    echo "Additional logs available in policyagent.log file" >> $logfile
+    echo "Final mounts ===========" >> $logfile
+    mount >> $logfile
+   ;;
+ stop)
+    echo "Stop call received" >> $logfile
+   ;;
+ restart)
+    echo "Restart call received" >> $logfile
+   ;;
+ *)
+   echo "Usage: policyagent-init {start|stop|restart}" >&2
+   exit 3
+   ;;
+esac
+echo " ****************** End policyagent-init script **************** " >> $logfile
+exit 0

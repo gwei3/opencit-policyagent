@@ -1,0 +1,11 @@
+module policyagent 1.0;
+
+require{
+	type lvm_t;
+	type unlabeled_t;
+	class socket read;
+	class socket write;
+	}
+
+#allow lvm_t type cryptsetup to write to unlabeled_t socket
+allow lvm_t unlabeled_t:socket { read write };
